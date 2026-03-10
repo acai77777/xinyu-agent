@@ -1,0 +1,47 @@
+{
+  "name": "PHQ-9",
+  "full_name": "Patient Health Questionnaire-9",
+  "description": "抑郁症状筛查量表",
+  "instruction": "在过去两周里，以下问题困扰你的频率是？",
+  "items": [
+    {"id": 1, "text": "做事时提不起劲或没有兴趣"},
+    {"id": 2, "text": "感到心情低落、沮丧或绝望"},
+    {"id": 3, "text": "入睡困难、睡不安稳或睡眠过多"},
+    {"id": 4, "text": "感觉疲倦或没有活力"},
+    {"id": 5, "text": "食欲不振或吃太多"},
+    {"id": 6, "text": "觉得自己很糟糕——或觉得自己很失败，或让自己或家人失望"},
+    {"id": 7, "text": "对事物专注有困难，例如阅读报纸或看电视"},
+    {"id": 8, "text": "动作或说话速度缓慢到别人可以觉察，或正好相反——Loss焦虑不安以至于坐立不安、动来动去"},
+    {"id": 9, "text": "有不如死掉或用某种方式伤害自己的念头"}
+  ],
+  "options": [
+    {"value": 0, "label": "完全不会"},
+    {"value": 1, "label": "好几天"},
+    {"value": 2, "label": "一半以上的天数"},
+    {"value": 3, "label": "几乎每天"}
+  ],
+  "scoring": {
+    "ranges": [
+      {"min": 0,  "max": 4,  "category": "none",     "label": "无抑郁"},
+      {"min": 5,  "max": 9,  "category": "mild",      "label": "轻度抑郁"},
+      {"min": 10, "max": 14, "category": "moderate",   "label": "中度抑郁"},
+      {"min": 15, "max": 19, "category": "mod_severe", "label": "中重度抑郁"},
+      {"min": 20, "max": 27, "category": "severe",     "label": "重度抑郁"}
+    ],
+    "total_min": 0,
+    "total_max": 27
+  },
+  "safety_items": [
+    {
+      "item_id": 9,
+      "trigger_condition": "score > 0",
+      "action": "触发安全守护流程，无论总分如何",
+      "note": "第9题涉及自伤/自杀意念，任何非零得分都需要立即关注"
+    }
+  ],
+  "clinical_notes": [
+    "PHQ-9总分≥10通常作为抑郁症筛查的临界值",
+    "建议结合临床访谈综合判断，量表结果仅作辅助参考",
+    "本量表不能替代专业诊断，仅用于症状筛查"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "name": "PERMA",
+  "full_name": "PERMA-Profiler",
+  "description": "幸福感评估（积极情绪、投入、关系、意义、成就）",
+  "instruction": "请根据你最近的整体感受，对以下每个描述进行评分。",
+  "items": [
+    {"id": 1,  "text": "你在多大程度上感到快乐？"},
+    {"id": 2,  "text": "你在多大程度上感到有活力？"},
+    {"id": 3,  "text": "你在多大程度上感到积极乐观？"},
+    {"id": 4,  "text": "你在做事时多大程度上会全身心投入、忘记时间？"},
+    {"id": 5,  "text": "你在多大程度上对正在做的事感到兴奋和着迷？"},
+    {"id": 6,  "text": "你在多大程度上会沉浸在自己喜欢的活动中？"},
+    {"id": 7,  "text": "你在多大程度上感到被爱和被关心？"},
+    {"id": 8,  "text": "你对自己的人际关系有多满意？"},
+    {"id": 9,  "text": "你在多大程度上感到自己能给予别人温暖和支持？"},
+    {"id": 10, "text": "你在多大程度上觉得自己的生活有目标和方向？"},
+    {"id": 11, "text": "你在多大程度上觉得自己做的事情是有价值的？"},
+    {"id": 12, "text": "你在多大程度上觉得自己的生活有意义？"},
+    {"id": 13, "text": "你在多大程度上觉得自己在朝着目标前进？"},
+    {"id": 14, "text": "你在多大程度上觉得自己能完成设定的任务？"},
+    {"id": 15, "text": "你在多大程度上觉得自己在重要的事情上做得很好？"}
+  ],
+  "options": [
+    {"value": 0,  "label": "完全没有"},
+    {"value": 1,  "label": "很少"},
+    {"value": 2,  "label": "有时"},
+    {"value": 3,  "label": "经常"},
+    {"value": 4,  "label": "非常频繁"},
+    {"value": 5,  "label": "一直如此"},
+    {"value": 6,  "label": "每时每刻"},
+    {"value": 7,  "label": "极其强烈"},
+    {"value": 8,  "label": "无法更多"},
+    {"value": 9,  "label": "达到极致"},
+    {"value": 10, "label": "最高水平"}
+  ],
+  "scoring": {
+    "ranges": [
+      {"min": 0,  "max": 37,  "category": "low",       "label": "幸福感较低"},
+      {"min": 38, "max": 75,  "category": "below_avg",  "label": "幸福感偏低"},
+      {"min": 76, "max": 112, "category": "average",     "label": "幸福感中等"},
+      {"min": 113,"max": 135, "category": "above_avg",   "label": "幸福感较高"},
+      {"min": 136,"max": 150, "category": "high",        "label": "幸福感很高"}
+    ],
+    "total_min": 0,
+    "total_max": 150
+  },
+  "subscales": [
+    {"name": "P（积极情绪）", "item_ids": [1, 2, 3]},
+    {"name": "E（投入）",     "item_ids": [4, 5, 6]},
+    {"name": "R（关系）",     "item_ids": [7, 8, 9]},
+    {"name": "M（意义）",     "item_ids": [10, 11, 12]},
+    {"name": "A（成就）",     "item_ids": [13, 14, 15]}
+  ],
+  "clinical_notes": [
+    "PERMA模型由Martin Seligman提出，衡量幸福的五个维度",
+    "各维度均分可帮助识别用户的幸福感强项和短板",
+    "本量表用于积极心理学评估，不作为临床诊断工具"
+  ]
+}

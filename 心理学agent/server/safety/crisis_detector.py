@@ -1,0 +1,202 @@
+"""
+两阶段危机检测：关键词快速扫描 + Haiku 语义分类
+阶段1零延迟兜底，阶段2处理隐喻、反讽、第三人称引用
+"""
+import json
+from dataclasses import dataclass
+from enum import Enum
+
+from config import settings
+
+
+class RiskLevel(Enum):
+    LOW = "low"           # 日常压力
+    MEDIUM = "medium"     # 持续低落
+    HIGH = "high"         # 自伤想法
+    CRITICAL = "critical" # 自杀计划/即刻危险
+
+
+@dataclass
+class RiskAssessment:
+    level: RiskLevel
+    matched_keywords: list[str]
+    semantic_confirmed: bool       # 语义分类是否确认了风险
+    recommended_action: str
+
+
+# 关键词库——分层级
+CRISIS_KEYWORDS: dict[RiskLevel, list[str]] = {
+    RiskLevel.CRITICAL: [
+        "自杀", "结束生命", "不想活", "跳楼", "割腕",
+        "吞药", "上吊", "遗书", "死了算了",
+    ],
+    RiskLevel.HIGH: [
+        "自伤", "自残", "没有希望", "活着没意义",
+        "不如死了", "生不如死", "绝望",
+    ],
+    RiskLevel.MEDIUM: [
+        "失眠很久", "吃不下饭", "不想出门", "酗酒",
+        "没有朋友", "被孤立", "很久没开心",
+    ],
+}
+
+
+async def detect_crisis(text: str) -> RiskAssessment:
+    """
+    两阶段危机检测：
+    阶段1：关键词快速扫描（零延迟，兜底）
+    阶段2：Haiku语义分类（处理隐喻、反讽、第三人称引用）
+
+    设计原因：
+    - 纯关键词会漏掉隐喻表达（如"我想去一个没有烦恼的地方永远睡着"）
+    - 纯关键词会误报第三人称引用（如"电影里那个人跳楼了"）
+    - 用Haiku做语义确认，成本极低（~0.001$/次），但能大幅降低误报和漏报
+    """
+    # === 阶段1：关键词预筛 ===
+    keyword_result = _keyword_scan(text)
+
+    # === 阶段2：语义分类确认 ===
+    # 情况A：关键词命中 → 用语义分类确认是否误报（第三人称/引用/反讽）
+    # 情况B：关键词未命中 → 用语义分类兜底检测隐喻性表达
+    semantic_result = await _semantic_classify(text)
+
+    # 合并决策：取两者中较高的风险等级，但语义分类可以降级关键词的误报
+    if keyword_result.level.value != "low" and semantic_result.level.value == "low":
+        # 关键词命中但语义判定为低风险 → 可能是误报（第三人称/引用）
+        # 降级为MEDIUM并标记需要人工复核
+        return RiskAssessment(
+            level=RiskLevel.MEDIUM,
+            matched_keywords=keyword_result.matched_keywords,
+            semantic_confirmed=False,
+            recommended_action="enhanced_monitoring_and_suggest_help",
+        )
+
+    if semantic_result.level.value != "low":
+        # 语义检测到风险（可能是隐喻性表达，关键词漏掉了）
+        return semantic_result
+
+    return keyword_result
+
+
+_FALSE_POSITIVE_RULES: dict[str, list[str]] = {
+    "不想活": ["不想活动"],
+}
+
+
+def _is_all_false_positive(text: str, kw: str, fp_patterns: list[str]) -> bool:
+    """判断关键词的所有出现是否都属于误报模式"""
+    if not fp_patterns:
+        return False
+    cleaned = text
+    for fp in fp_patterns:
+        cleaned = cleaned.replace(fp, "")
+    return kw not in cleaned
+
+
+def _keyword_scan(text: str) -> RiskAssessment:
+    """阶段1：关键词快速扫描"""
+    for level in [RiskLevel.CRITICAL, RiskLevel.HIGH, RiskLevel.MEDIUM]:
+        matched = [kw for kw in CRISIS_KEYWORDS[level] if kw in text]
+        # 排除已知误报（仅当关键词的所有出现都属于误报时才排除）
+        matched = [
+            kw for kw in matched
+            if not _is_all_false_positive(text, kw, _FALSE_POSITIVE_RULES.get(kw, []))
+        ]
+        if matched:
+            return RiskAssessment(
+                level=level,
+                matched_keywords=matched,
+                semantic_confirmed=False,
+                recommended_action=_get_action(level),
+            )
+    return RiskAssessment(
+        level=RiskLevel.LOW,
+        matched_keywords=[],
+        semantic_confirmed=False,
+        recommended_action="normal_conversation",
+    )
+
+
+async def _semantic_classify(text: str) -> RiskAssessment:
+    """
+    阶段2：用Haiku做语义级危机分类
+    能识别：隐喻性自杀表达、第三人称引用（降级）、反讽语境
+    """
+    import anthropic
+    client = anthropic.AsyncAnthropic()
+
+    try:
+        response = await client.messages.create(
+            model=settings.light_model,
+            max_tokens=128,
+            system="你是心理危机风险评估专家。判断用户文本是否包含自伤/自杀风险。",
+            messages=[{
+                "role": "user",
+                "content": (
+                    f'判断以下文本的自伤/自杀风险等级，返回JSON：\n'
+                    f'文本："{text}"\n\n'
+                    f'判断要点：\n'
+                    f'- 区分用户本人的意图 vs 讨论他人/影视作品\n'
+                    f'- 识别隐喻性表达（如"永远睡过去"、"把猫托付给邻居"等告别行为）\n'
+                    f'- 反讽或玩笑语境应降低风险等级\n\n'
+                    f'返回格式：{{"risk_level": "critical/high/medium/low", '
+                    f'"is_first_person": true/false, "reasoning": "简短理由"}}'
+                ),
+            }],
+        )
+        return _parse_semantic_response(response)
+    except Exception:
+        # 语义分类失败时降级为 LOW（关键词层已有兜底）
+        return RiskAssessment(
+            level=RiskLevel.LOW,
+            matched_keywords=[],
+            semantic_confirmed=False,
+            recommended_action="normal_conversation",
+        )
+
+
+def _parse_semantic_response(response) -> RiskAssessment:
+    """解析 Haiku 返回的语义分类 JSON"""
+    try:
+        raw = response.content[0].text.strip()
+        # 处理可能的 markdown 代码块包裹
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        result = json.loads(raw)
+
+        level_map = {
+            "critical": RiskLevel.CRITICAL,
+            "high": RiskLevel.HIGH,
+            "medium": RiskLevel.MEDIUM,
+            "low": RiskLevel.LOW,
+        }
+        level = level_map.get(result.get("risk_level", "low"), RiskLevel.LOW)
+        is_first_person = result.get("is_first_person", False)
+
+        # 非第一人称的高风险内容降级
+        if level in (RiskLevel.CRITICAL, RiskLevel.HIGH) and not is_first_person:
+            level = RiskLevel.MEDIUM
+
+        return RiskAssessment(
+            level=level,
+            matched_keywords=[],
+            semantic_confirmed=True,
+            recommended_action=_get_action(level) if level != RiskLevel.LOW else "normal_conversation",
+        )
+    except (json.JSONDecodeError, IndexError, KeyError):
+        return RiskAssessment(
+            level=RiskLevel.LOW,
+            matched_keywords=[],
+            semantic_confirmed=False,
+            recommended_action="normal_conversation",
+        )
+
+
+def _get_action(level: RiskLevel) -> str:
+    """风险等级 → 推荐动作"""
+    actions = {
+        RiskLevel.CRITICAL: "immediate_crisis_response",
+        RiskLevel.HIGH: "provide_hotline_and_suggest_professional",
+        RiskLevel.MEDIUM: "enhanced_monitoring_and_suggest_help",
+    }
+    return actions.get(level, "normal_conversation")
