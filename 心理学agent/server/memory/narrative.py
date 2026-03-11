@@ -140,31 +140,45 @@ class NarrativeMemory:
         summary = arc.get("arc_summary", "")
 
         if need_llm:
-            import anthropic
-            client = anthropic.AsyncAnthropic()
+            from llm_client import get_async_client, get_light_model, _is_openai_compatible
+
+            client = get_async_client()
+            model = get_light_model()
 
             timeline = "\n".join([
                 f"- {s['timestamp']}: {s['primary_emotion']}(强度{s['intensity']}/10) 触发：{s['trigger']}"
                 for s in snapshots[-10:]
             ])
 
+            system_msg = "你是心理咨询记录分析师。根据用户的情绪时间线，生成简洁的叙事摘要。"
+            user_content = (
+                f"主题：{arc['theme']}\n"
+                f"情绪时间线：\n{timeline}\n\n"
+                f"请返回JSON：\n"
+                f'{{"summary": "用第三人称描述这段情感经历的演变（2-3句话）", '
+                f'"trend": "improving/worsening/fluctuating/stable"}}'
+            )
+
             try:
-                response = await client.messages.create(
-                    model=settings.light_model,
-                    max_tokens=256,
-                    system="你是心理咨询记录分析师。根据用户的情绪时间线，生成简洁的叙事摘要。",
-                    messages=[{
-                        "role": "user",
-                        "content": (
-                            f"主题：{arc['theme']}\n"
-                            f"情绪时间线：\n{timeline}\n\n"
-                            f"请返回JSON：\n"
-                            f'{{"summary": "用第三人称描述这段情感经历的演变（2-3句话）", '
-                            f'"trend": "improving/worsening/fluctuating/stable"}}'
-                        ),
-                    }],
-                )
-                result = json.loads(response.content[0].text.strip())
+                if _is_openai_compatible():
+                    response = await client.chat.completions.create(
+                        model=model,
+                        max_tokens=256,
+                        messages=[
+                            {"role": "system", "content": system_msg},
+                            {"role": "user", "content": user_content},
+                        ],
+                    )
+                    raw_text = response.choices[0].message.content.strip()
+                else:
+                    response = await client.messages.create(
+                        model=model,
+                        max_tokens=256,
+                        system=system_msg,
+                        messages=[{"role": "user", "content": user_content}],
+                    )
+                    raw_text = response.content[0].text.strip()
+                result = json.loads(raw_text)
                 summary = result.get("summary", summary)
                 trend = result.get("trend", trend)
             except Exception:

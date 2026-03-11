@@ -14,9 +14,11 @@ async def init_db():
     使用 aiosqlite 异步执行，避免阻塞事件循环。
     """
     db_path = settings.sqlite_db_path
-    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+    is_uri = db_path.startswith("file:")
+    if not is_uri and db_path != ":memory:":
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
-    async with aiosqlite.connect(db_path) as db:
+    async with aiosqlite.connect(db_path, uri=is_uri) as db:
         # 用户表
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -100,9 +102,26 @@ async def init_db():
             )
         """)
 
+        # 心情打卡表
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS mood_checkins (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                note TEXT DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_mood_user_date
+            ON mood_checkins(user_id, created_at)
+        """)
+
         await db.commit()
 
 
 async def get_db() -> aiosqlite.Connection:
     """获取数据库连接（调用方需要自己关闭）"""
-    return await aiosqlite.connect(settings.sqlite_db_path)
+    db_path = settings.sqlite_db_path
+    is_uri = db_path.startswith("file:")
+    return await aiosqlite.connect(db_path, uri=is_uri)

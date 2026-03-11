@@ -121,9 +121,11 @@ def detect_distortion(user_text: str) -> list[DistortionResult]:
 def _llm_confirm_distortions(
     user_text: str, candidates: list[str]
 ) -> list[DistortionResult]:
-    """用 Haiku 对关键词预筛候选进行语义确认，降低误报"""
-    import anthropic
-    client = anthropic.Anthropic()
+    """用轻量模型对关键词预筛候选进行语义确认，降低误报"""
+    from llm_client import get_sync_client, get_light_model, _is_openai_compatible
+
+    client = get_sync_client()
+    model = get_light_model()
 
     candidate_info = []
     for c in candidates:
@@ -131,28 +133,40 @@ def _llm_confirm_distortions(
         candidate_info.append(f"- {info['name']}（{info['name_en']}）")
     candidate_text = "\n".join(candidate_info)
 
+    system_msg = "你是认知行为疗法（CBT）专家。判断用户文本中是否真的存在以下候选认知扭曲。"
+    user_content = (
+        f'用户文本："{user_text}"\n\n'
+        f'候选认知扭曲：\n{candidate_text}\n\n'
+        f'判断要点：\n'
+        f'- 关键词存在不等于认知扭曲存在（如"我总是很开心"不是全或无思维）\n'
+        f'- 需要结合语境判断是否为非理性思维模式\n'
+        f'- "应该"在日常用语中很常见，只有当它表达不合理的自我要求时才是认知扭曲\n\n'
+        f'返回JSON数组，每个确认的扭曲包含：\n'
+        f'[{{"type": "扭曲类型中文名", "type_en": "英文名", '
+        f'"evidence": "文本中的证据", "confidence": 0-1}}]\n'
+        f'如果都不是真正的认知扭曲，返回空数组 []'
+    )
+
     try:
-        response = client.messages.create(
-            model=settings.light_model,
-            max_tokens=512,
-            system="你是认知行为疗法（CBT）专家。判断用户文本中是否真的存在以下候选认知扭曲。",
-            messages=[{
-                "role": "user",
-                "content": (
-                    f'用户文本："{user_text}"\n\n'
-                    f'候选认知扭曲：\n{candidate_text}\n\n'
-                    f'判断要点：\n'
-                    f'- 关键词存在不等于认知扭曲存在（如"我总是很开心"不是全或无思维）\n'
-                    f'- 需要结合语境判断是否为非理性思维模式\n'
-                    f'- "应该"在日常用语中很常见，只有当它表达不合理的自我要求时才是认知扭曲\n\n'
-                    f'返回JSON数组，每个确认的扭曲包含：\n'
-                    f'[{{"type": "扭曲类型中文名", "type_en": "英文名", '
-                    f'"evidence": "文本中的证据", "confidence": 0-1}}]\n'
-                    f'如果都不是真正的认知扭曲，返回空数组 []'
-                ),
-            }],
-        )
-        return _parse_distortion_response(response, candidates)
+        if _is_openai_compatible():
+            response = client.chat.completions.create(
+                model=model,
+                max_tokens=512,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            raw = response.choices[0].message.content.strip()
+        else:
+            response = client.messages.create(
+                model=model,
+                max_tokens=512,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            raw = response.content[0].text.strip()
+        return _parse_distortion_raw(raw, candidates)
     except Exception:
         # LLM 调用失败时，返回低置信度的关键词预筛结果
         results = []
@@ -168,12 +182,11 @@ def _llm_confirm_distortions(
         return results
 
 
-def _parse_distortion_response(
-    response, candidates: list[str]
+def _parse_distortion_raw(
+    raw: str, candidates: list[str]
 ) -> list[DistortionResult]:
-    """解析 Haiku 返回的认知扭曲确认结果"""
+    """解析认知扭曲确认结果 JSON 字符串"""
     try:
-        raw = response.content[0].text.strip()
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         items = json.loads(raw)
@@ -193,3 +206,9 @@ def _parse_distortion_response(
         return results
     except (json.JSONDecodeError, IndexError, KeyError, ValueError):
         return []
+
+
+def _parse_distortion_response(response, candidates: list[str]) -> list[DistortionResult]:
+    """兼容旧接口：从 Anthropic response 对象中提取文本后解析"""
+    raw = response.content[0].text.strip()
+    return _parse_distortion_raw(raw, candidates)

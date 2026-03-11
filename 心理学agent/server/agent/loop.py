@@ -6,6 +6,7 @@ import asyncio
 import json
 
 from config import settings
+from llm_client import get_async_client, get_model, get_light_model, _is_openai_compatible
 from safety.crisis_detector import detect_crisis, RiskLevel
 from safety.resources import CrisisHolding
 from agent.tools import TOOLS, execute_tool
@@ -17,7 +18,7 @@ from agent.prompts import SYSTEM_PROMPT
 # ============================================================
 
 def _is_deepseek() -> bool:
-    return settings.llm_provider == "deepseek"
+    return _is_openai_compatible()
 
 
 async def _llm_chat(
@@ -49,9 +50,9 @@ async def _llm_chat(
 
 async def _anthropic_chat(system, messages, tools, max_tokens, model_override):
     import anthropic
-    client = anthropic.AsyncAnthropic()
+    client = get_async_client()
 
-    model = model_override or settings.main_model
+    model = get_model(model_override)
 
     kwargs = dict(
         model=model,
@@ -175,11 +176,8 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
 async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
     from openai import AsyncOpenAI
 
-    client = AsyncOpenAI(
-        api_key=settings.deepseek_api_key,
-        base_url=settings.deepseek_base_url,
-    )
-    model = model_override or settings.deepseek_model
+    client = get_async_client()
+    model = get_model(model_override)
 
     oai_messages = _messages_to_openai_format(system, messages)
 
@@ -387,7 +385,7 @@ async def _background_assess(
 
     try:
         # 后台评估用轻量模型
-        light_model = settings.deepseek_model if _is_deepseek() else settings.light_model
+        light_model = get_light_model()
         result = await _llm_chat(
             system=(
                 "简要评估用户情绪和可能的认知模式。注意结合对话上下文判断——"
@@ -472,7 +470,7 @@ async def _meta_monitor(
         return response_text
 
     try:
-        light_model = settings.deepseek_model if _is_deepseek() else settings.light_model
+        light_model = get_light_model()
         result = await _llm_chat(
             system=(
                 "你是心理安全审核专家。检查AI情感支持助手的回复是否存在以下问题：\n"

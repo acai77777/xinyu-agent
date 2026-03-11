@@ -20,52 +20,66 @@ async def analyze_image(
     参数：
     - image_source: 图片路径或 URL
     - user_context: 用户附带的文字说明
-
-    权衡：
-    - Claude Vision 与主模型统一，无需额外 API key
-    - 图片分析用 Haiku 而非 Sonnet，降低成本
-    - 不做面部表情的精确分类（准确率不够），而是提供描述性分析供主模型参考
     """
-    import anthropic
+    from llm_client import get_async_client, get_light_model, _is_openai_compatible
     from config import settings
 
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = get_async_client()
+    model = get_light_model()
     image_data = await _load_image(image_source)
 
-    response = await client.messages.create(
-        model=settings.light_model,
-        max_tokens=512,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": image_data["media_type"],
-                        "data": image_data["base64"],
-                    },
-                },
-                {
-                    "type": "text",
-                    "text": (
-                        "你是一位心理咨询助手的视觉分析模块。请分析这张图片，关注以下方面：\n\n"
-                        "1. 如果是人物照片：描述可观察到的情绪线索（表情、姿态、环境），但不要做诊断性判断\n"
-                        "2. 如果是绘画/涂鸦：描述色彩使用、线条特征、主题，以及可能反映的情绪状态\n"
-                        "3. 如果是聊天截图：提取关键对话内容\n"
-                        "4. 其他类型：简要描述内容\n\n"
-                        f"用户附带说明：{user_context if user_context else '无'}\n\n"
-                        "注意：\n"
-                        "- 用描述性语言，不要下诊断结论\n"
-                        "- 关注情绪相关的视觉线索\n"
-                        "- 保持温和、非评判的语气\n"
-                        "- 返回简洁的分析（3-5句话）"
-                    ),
-                },
-            ],
-        }],
+    text_prompt = (
+        "你是一位心理咨询助手的视觉分析模块。请分析这张图片，关注以下方面：\n\n"
+        "1. 如果是人物照片：描述可观察到的情绪线索（表情、姿态、环境），但不要做诊断性判断\n"
+        "2. 如果是绘画/涂鸦：描述色彩使用、线条特征、主题，以及可能反映的情绪状态\n"
+        "3. 如果是聊天截图：提取关键对话内容\n"
+        "4. 其他类型：简要描述内容\n\n"
+        f"用户附带说明：{user_context if user_context else '无'}\n\n"
+        "注意：\n"
+        "- 用描述性语言，不要下诊断结论\n"
+        "- 关注情绪相关的视觉线索\n"
+        "- 保持温和、非评判的语气\n"
+        "- 返回简洁的分析（3-5句话）"
     )
-    return response.content[0].text
+
+    if _is_openai_compatible():
+        response = await client.chat.completions.create(
+            model=model,
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{image_data['media_type']};base64,{image_data['base64']}",
+                        },
+                    },
+                    {"type": "text", "text": text_prompt},
+                ],
+            }],
+        )
+        return response.choices[0].message.content
+    else:
+        response = await client.messages.create(
+            model=model,
+            max_tokens=512,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": image_data["media_type"],
+                            "data": image_data["base64"],
+                        },
+                    },
+                    {"type": "text", "text": text_prompt},
+                ],
+            }],
+        )
+        return response.content[0].text
 
 
 async def _load_image(source: str) -> dict:

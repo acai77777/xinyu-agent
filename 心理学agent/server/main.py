@@ -11,6 +11,7 @@ from api.routes_chat import router as chat_router
 from api.routes_auth import router as auth_router
 from api.routes_history import router as history_router
 from api.routes_multimodal import router as multimodal_router
+from api.routes_mood import router as mood_router
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/auth", tags=["认证"])
 app.include_router(history_router, prefix="/api/history", tags=["历史"])
 app.include_router(multimodal_router, prefix="/api/multimodal", tags=["多模态"])
+app.include_router(mood_router, prefix="/api/mood", tags=["心情打卡"])
 
 # WebSocket 路由（聊天核心）
 app.include_router(chat_router)

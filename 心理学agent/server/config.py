@@ -6,18 +6,20 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    # LLM Provider: "anthropic" | "deepseek"
-    llm_provider: str = "anthropic"
+    # LLM Provider: "anthropic" | "deepseek" | "openrouter"
+    llm_provider: str = "openrouter"
 
     # API Keys
     anthropic_api_key: str = ""
     openai_api_key: str = ""
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com"
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # 模型配置
-    main_model: str = "claude-sonnet-4-20250514"
-    light_model: str = "claude-haiku-4-20250414"
+    main_model: str = "anthropic/claude-sonnet-4"
+    light_model: str = "deepseek/deepseek-v3.2"
     deepseek_model: str = "deepseek-chat"
     max_tokens: int = 2048
 

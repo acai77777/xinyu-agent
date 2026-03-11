@@ -119,34 +119,46 @@ def _keyword_scan(text: str) -> RiskAssessment:
 
 async def _semantic_classify(text: str) -> RiskAssessment:
     """
-    阶段2：用Haiku做语义级危机分类
+    阶段2：用轻量模型做语义级危机分类
     能识别：隐喻性自杀表达、第三人称引用（降级）、反讽语境
     """
-    import anthropic
-    client = anthropic.AsyncAnthropic()
+    from llm_client import get_async_client, get_light_model, _is_openai_compatible
+
+    client = get_async_client()
+    model = get_light_model()
+
+    system_msg = "你是心理危机风险评估专家。判断用户文本是否包含自伤/自杀风险。"
+    user_content = (
+        f'判断以下文本的自伤/自杀风险等级，返回JSON：\n'
+        f'文本："{text}"\n\n'
+        f'判断要点：\n'
+        f'- 区分用户本人的意图 vs 讨论他人/影视作品\n'
+        f'- 识别隐喻性表达（如"永远睡过去"、"把猫托付给邻居"等告别行为）\n'
+        f'- 反讽或玩笑语境应降低风险等级\n\n'
+        f'返回格式：{{"risk_level": "critical/high/medium/low", '
+        f'"is_first_person": true/false, "reasoning": "简短理由"}}'
+    )
 
     try:
-        response = await client.messages.create(
-            model=settings.light_model,
-            max_tokens=128,
-            system="你是心理危机风险评估专家。判断用户文本是否包含自伤/自杀风险。",
-            messages=[{
-                "role": "user",
-                "content": (
-                    f'判断以下文本的自伤/自杀风险等级，返回JSON：\n'
-                    f'文本："{text}"\n\n'
-                    f'判断要点：\n'
-                    f'- 区分用户本人的意图 vs 讨论他人/影视作品\n'
-                    f'- 识别隐喻性表达（如"永远睡过去"、"把猫托付给邻居"等告别行为）\n'
-                    f'- 反讽或玩笑语境应降低风险等级\n\n'
-                    f'返回格式：{{"risk_level": "critical/high/medium/low", '
-                    f'"is_first_person": true/false, "reasoning": "简短理由"}}'
-                ),
-            }],
-        )
-        return _parse_semantic_response(response)
+        if _is_openai_compatible():
+            response = await client.chat.completions.create(
+                model=model,
+                max_tokens=128,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": user_content},
+                ],
+            )
+            return _parse_semantic_response_openai(response)
+        else:
+            response = await client.messages.create(
+                model=model,
+                max_tokens=128,
+                system=system_msg,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            return _parse_semantic_response(response)
     except Exception:
-        # 语义分类失败时降级为 LOW（关键词层已有兜底）
         return RiskAssessment(
             level=RiskLevel.LOW,
             matched_keywords=[],
@@ -156,10 +168,32 @@ async def _semantic_classify(text: str) -> RiskAssessment:
 
 
 def _parse_semantic_response(response) -> RiskAssessment:
-    """解析 Haiku 返回的语义分类 JSON"""
+    """解析 Anthropic 返回的语义分类 JSON"""
     try:
         raw = response.content[0].text.strip()
-        # 处理可能的 markdown 代码块包裹
+        return _parse_semantic_json(raw)
+    except (json.JSONDecodeError, IndexError, KeyError):
+        return RiskAssessment(
+            level=RiskLevel.LOW, matched_keywords=[],
+            semantic_confirmed=False, recommended_action="normal_conversation",
+        )
+
+
+def _parse_semantic_response_openai(response) -> RiskAssessment:
+    """解析 OpenAI 兼容格式返回的语义分类 JSON"""
+    try:
+        raw = response.choices[0].message.content.strip()
+        return _parse_semantic_json(raw)
+    except (json.JSONDecodeError, IndexError, KeyError, AttributeError):
+        return RiskAssessment(
+            level=RiskLevel.LOW, matched_keywords=[],
+            semantic_confirmed=False, recommended_action="normal_conversation",
+        )
+
+
+def _parse_semantic_json(raw: str) -> RiskAssessment:
+    """解析语义分类 JSON 字符串"""
+    try:
         if raw.startswith("```"):
             raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
         result = json.loads(raw)
