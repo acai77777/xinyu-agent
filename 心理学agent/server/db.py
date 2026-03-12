@@ -102,6 +102,17 @@ async def init_db():
             )
         """)
 
+        # 会话策略表
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS session_strategies (
+                session_id TEXT PRIMARY KEY,
+                strategy_json TEXT NOT NULL,
+                version INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
         # 心情打卡表
         await db.execute("""
             CREATE TABLE IF NOT EXISTS mood_checkins (

@@ -1,21 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Radius, Shadows, FontSizes } from '../constants/theme';
-import { MOCK_SESSIONS } from '../constants/mockData';
 import { MoodSelector } from '../components/MoodSelector';
-import { moodCheckin, getMoodToday } from '../services/api';
+import { moodCheckin, getMoodToday, API_BASE_URL, getToken } from '../services/api';
+
+interface SessionItem {
+  session_id: string;
+  title: string;
+  preview: string;
+  updated_at: string;
+  message_count: number;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
   const [todayScore, setTodayScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
 
+  // 加载今日心情
   useEffect(() => {
     getMoodToday()
       .then((checkin) => {
@@ -24,6 +34,24 @@ export default function HomeScreen() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // 加载最近会话
+  const loadSessions = useCallback(() => {
+    setSessionsLoading(true);
+    const token = getToken();
+    fetch(`${API_BASE_URL}/api/history/sessions`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then((res) => res.json())
+      .then((data) => setSessions(data.sessions || []))
+      .catch(() => {})
+      .finally(() => setSessionsLoading(false));
+  }, []);
+
+  useEffect(() => { loadSessions(); }, []);
 
   const handleMoodSubmit = async (score: number) => {
     try {
@@ -34,6 +62,24 @@ export default function HomeScreen() {
     }
   };
 
+  const handleNewChat = async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/api/history/sessions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ title: '' }),
+      });
+      const data = await res.json();
+      router.push(`/chat/${data.session_id}`);
+    } catch {
+      router.push('/chat/new');
+    }
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 6) return '夜深了 🌙';
@@ -41,6 +87,22 @@ export default function HomeScreen() {
     if (hour < 18) return '下午好 ☀️';
     return '晚上好 🌙';
   };
+
+  const formatTime = (isoStr: string) => {
+    const d = new Date(isoStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) {
+      return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+    if (diffDays === 1) return '昨天';
+    if (diffDays < 7) return `${diffDays}天前`;
+    return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  };
+
+  const EMOJIS = ['🌿', '🌸', '🍃', '✨', '🌊', '🌙', '🌻', '🦋'];
+  const BG_COLORS = ['#E8F2F8', '#F5EBF0', '#EBF5EC', '#FFF5E8', '#E8ECF5', '#F0E8F5', '#FFF8E8', '#E8F5F0'];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -78,36 +140,46 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>最近对话</Text>
         <View style={styles.sessionList}>
-          {MOCK_SESSIONS.map((s) => (
+          {sessionsLoading ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
+          ) : sessions.length === 0 ? (
             <TouchableOpacity
-              key={s.id}
-              style={[styles.sessionCard, Shadows.sm]}
-              onPress={() => router.push(`/chat/${s.id}`)}
+              style={[styles.emptyCard, Shadows.sm]}
+              onPress={handleNewChat}
               activeOpacity={0.7}
             >
-              <View style={[styles.sessionAvatar, { backgroundColor: s.bg }]}>
-                <Text style={styles.sessionEmoji}>{s.emoji}</Text>
-              </View>
-              <View style={styles.sessionInfo}>
-                <Text style={styles.sessionName}>{s.name}</Text>
-                <Text style={styles.sessionPreview} numberOfLines={1}>{s.preview}</Text>
-              </View>
-              <View style={styles.sessionMeta}>
-                <Text style={styles.sessionTime}>{s.time}</Text>
-                {s.unread > 0 && (
-                  <View style={styles.sessionBadge}>
-                    <Text style={styles.sessionBadgeText}>{s.unread}</Text>
-                  </View>
-                )}
-              </View>
+              <Ionicons name="chatbubble-ellipses-outline" size={32} color={Colors.textTertiary} />
+              <Text style={styles.emptyText}>还没有对话，点击开始第一次聊天</Text>
             </TouchableOpacity>
-          ))}
+          ) : (
+            sessions.slice(0, 5).map((s, idx) => (
+              <TouchableOpacity
+                key={s.session_id}
+                style={[styles.sessionCard, Shadows.sm]}
+                onPress={() => router.push(`/chat/${s.session_id}`)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.sessionAvatar, { backgroundColor: BG_COLORS[idx % BG_COLORS.length] }]}>
+                  <Text style={styles.sessionEmoji}>{EMOJIS[idx % EMOJIS.length]}</Text>
+                </View>
+                <View style={styles.sessionInfo}>
+                  <Text style={styles.sessionName}>{s.title || '新对话'}</Text>
+                  <Text style={styles.sessionPreview} numberOfLines={1}>
+                    {s.preview || `${s.message_count} 条消息`}
+                  </Text>
+                </View>
+                <View style={styles.sessionMeta}>
+                  <Text style={styles.sessionTime}>{formatTime(s.updated_at)}</Text>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/chat/new')}
+        onPress={handleNewChat}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#fff" />
@@ -174,6 +246,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 100,
     gap: 10,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 32,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.md,
+  },
+  emptyText: {
+    fontSize: FontSizes.body,
+    color: Colors.textSecondary,
   },
   sessionCard: {
     flexDirection: 'row',

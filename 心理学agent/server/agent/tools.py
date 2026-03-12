@@ -122,6 +122,24 @@ TOOLS = [
             "required": ["action"],
         },
     },
+    {
+        "name": "search_knowledge_base",
+        "description": "在心理学知识库中搜索相关知识（同时使用关键词匹配和语义向量搜索），覆盖CBT理论、积极心理学、真实的幸福等书籍",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "搜索查询，如'感恩练习'、'认知扭曲'、'心流体验'等",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "最大返回结果数（默认5）",
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -139,6 +157,7 @@ def execute_tool(tool_name: str, tool_input: dict, context: dict | None = None) 
         "retrieve_user_history": _handle_retrieve_history,
         "guide_exercise": _handle_guide_exercise,
         "manage_memory": _handle_manage_memory,
+        "search_knowledge_base": _handle_search_knowledge_base,
     }
 
     handler = handlers.get(tool_name)
@@ -343,3 +362,23 @@ def _handle_manage_memory(inputs: dict, context: dict | None = None) -> str:
         }, ensure_ascii=False)
 
     return json.dumps({"error": f"未知操作: {action}"}, ensure_ascii=False)
+
+
+def _handle_search_knowledge_base(inputs: dict, context: dict | None = None) -> str:
+    """同时使用关键词匹配和语义向量搜索知识库"""
+    import json
+    from knowledge.knowledge_base import search_knowledge, search_books_semantic
+
+    query = inputs.get("query", "")
+    max_results = inputs.get("max_results", 5)
+
+    # 1. JSON 关键词匹配
+    keyword_results = search_knowledge(query, max_results=max_results)
+
+    # 2. ChromaDB 语义搜索
+    semantic_results = search_books_semantic(query, max_results=max_results)
+
+    return json.dumps({
+        "keyword_matches": keyword_results,
+        "semantic_matches": semantic_results,
+    }, ensure_ascii=False)

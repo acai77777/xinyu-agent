@@ -4,9 +4,72 @@ Agent 主循环——支持 Anthropic / DeepSeek (OpenAI 兼容) 双 Provider
 """
 import asyncio
 import json
+import time
+import logging
+from pathlib import Path
 
 from config import settings
-from llm_client import get_async_client, get_model, get_light_model, _is_openai_compatible
+
+logger = logging.getLogger(__name__)
+
+# ------------------------------------------------------------------
+# LLM 调用日志——每次调用追加写入 JSONL 文件
+# ------------------------------------------------------------------
+_LLM_LOG_PATH = Path(settings.sqlite_db_path).parent / "llm_calls.jsonl"
+
+
+def _serialize_messages(messages: list) -> list:
+    """将消息列表序列化为可 JSON 化的格式（处理 Anthropic 原生对象）。"""
+    result = []
+    for msg in messages:
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            result.append({"role": msg["role"], "content": content})
+        elif isinstance(content, list):
+            # Anthropic tool_result 列表
+            items = []
+            for item in content:
+                if isinstance(item, dict):
+                    items.append(item)
+                elif hasattr(item, "__dict__"):
+                    items.append(str(item))
+                else:
+                    items.append(str(item))
+            result.append({"role": msg["role"], "content": items})
+        elif hasattr(content, "__iter__"):
+            # Anthropic response.content blocks
+            result.append({"role": msg["role"], "content": str(content)})
+        else:
+            result.append({"role": msg["role"], "content": str(content)})
+    return result
+
+
+def _log_llm_call(
+    system: str,
+    messages: list,
+    model: str,
+    result: dict,
+    duration_ms: int,
+) -> None:
+    """追加一条 LLM 调用记录到 JSONL 文件。"""
+    from datetime import datetime, timezone
+    try:
+        _LLM_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        record = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "model": model,
+            "duration_ms": duration_ms,
+            "system": system,
+            "messages": _serialize_messages(messages),
+            "response_text": result.get("text"),
+            "tool_calls": result.get("tool_calls", []),
+            "stop_reason": result.get("stop_reason"),
+        }
+        with open(_LLM_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except Exception as e:
+        logger.warning(f"[LLM Log] Failed to write: {e}")
+from llm_client import get_async_client, get_model, get_light_model, get_light_client, _is_openai_compatible
 from safety.crisis_detector import detect_crisis, RiskLevel
 from safety.resources import CrisisHolding
 from agent.tools import TOOLS, execute_tool
@@ -42,10 +105,18 @@ async def _llm_chat(
     if max_tokens is None:
         max_tokens = settings.max_tokens
 
+    model = get_model(model_override)
+    t0 = time.monotonic()
+
     if _is_deepseek():
-        return await _deepseek_chat(system, messages, tools, max_tokens, model_override)
+        result = await _deepseek_chat(system, messages, tools, max_tokens, model_override)
     else:
-        return await _anthropic_chat(system, messages, tools, max_tokens, model_override)
+        result = await _anthropic_chat(system, messages, tools, max_tokens, model_override)
+
+    duration_ms = int((time.monotonic() - t0) * 1000)
+    _log_llm_call(system, messages, model, result, duration_ms)
+
+    return result
 
 
 async def _anthropic_chat(system, messages, tools, max_tokens, model_override):
@@ -176,7 +247,12 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
 async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
     from openai import AsyncOpenAI
 
-    client = get_async_client()
+    # light model 走 DeepSeek 官方直连
+    light_model = get_light_model()
+    if model_override and model_override == light_model:
+        client = get_light_client()
+    else:
+        client = get_async_client()
     model = get_model(model_override)
 
     oai_messages = _messages_to_openai_format(system, messages)
@@ -223,6 +299,7 @@ async def run_agent(
     tools: list | None = None,
     system_prompt: str | None = None,
     crisis_holding: CrisisHolding | None = None,
+    session_id: str | None = None,
 ) -> dict:
     """
     Agent主循环：
@@ -240,10 +317,12 @@ async def run_agent(
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
-    # === 前置安全检查 + 后台评估并发执行（避免串行等待）===
-    risk, (bg_assessment, bg_emotion) = await asyncio.gather(
-        detect_crisis(user_message),
-        _background_assess(user_message, conversation_history),
+    # === 前置安全检查（必须等待）+ 后台评估（不阻塞）===
+    risk = await detect_crisis(user_message)
+
+    # 后台评估异步执行，不阻塞主回复
+    bg_assess_task = asyncio.create_task(
+        _background_assess(user_message, conversation_history)
     )
 
     # === 危机抱持模式处理 ===
@@ -254,7 +333,7 @@ async def run_agent(
         if not crisis_holding.active:
             crisis_holding.enter()
 
-    # 将风险信息和后台评估注入上下文
+    # 将风险信息注入上下文（后台评估结果不等待，下一轮可用）
     context_enriched_prompt = system_prompt
     context_hints: list[str] = []
 
@@ -271,6 +350,14 @@ async def run_agent(
             f"请在回复中温和地建议寻求专业帮助。"
         )
 
+    # 尝试快速获取后台评估（如果已完成则用，否则跳过）
+    bg_assessment, bg_emotion = None, None
+    if bg_assess_task.done():
+        try:
+            bg_assessment, bg_emotion = bg_assess_task.result()
+        except Exception:
+            pass
+
     if bg_assessment:
         context_hints.append(f"[后台评估·仅供参考] {bg_assessment}")
         context_hints.append(
@@ -282,14 +369,88 @@ async def run_agent(
     if alliance_warning:
         context_hints.append(f"[关系提示] {alliance_warning}")
 
+    # === 叙事记忆：注入用户情感弧线上下文 ===
     try:
-        from memory.user_profile import RelationshipStateMachine
+        from memory.narrative import NarrativeMemory
+        nm = NarrativeMemory()
+        narrative_ctx = nm.get_narrative_context(user_id)
+        if narrative_ctx:
+            context_hints.append(narrative_ctx)
+    except Exception:
+        pass
+
+    # === 用户画像 + 关系状态机 ===
+    try:
+        from memory.user_profile import ProfileStore, RelationshipStateMachine
+        ps = ProfileStore()
+        profile = ps.load(user_id)
+        if profile:
+            profile_parts = []
+            if profile.display_name:
+                profile_parts.append(f"称呼：{profile.display_name}")
+            if profile.signature_strengths:
+                profile_parts.append(f"性格优势：{'、'.join(profile.signature_strengths)}")
+            if profile.common_distortions:
+                profile_parts.append(f"常见认知扭曲：{'、'.join(profile.common_distortions)}")
+            if profile.preferred_interventions:
+                profile_parts.append(f"偏好干预方式：{'、'.join(profile.preferred_interventions)}")
+            if profile.current_phase and profile.current_phase != "unknown":
+                phase_cn = {
+                    "crisis": "危机期", "distressed": "困扰期",
+                    "recovering": "恢复期", "growing": "成长期",
+                    "flourishing": "蓬勃期",
+                }
+                profile_parts.append(f"当前阶段：{phase_cn.get(profile.current_phase, profile.current_phase)}")
+            if profile_parts:
+                context_hints.append(f"[用户画像] {'；'.join(profile_parts)}")
+
         rsm = RelationshipStateMachine()
         relationship_guidance = rsm.get_guidance(user_id)
         if relationship_guidance:
             context_hints.append(f"[关系状态] {relationship_guidance}")
-    except ImportError:
+        rsm.update(user_id, user_message)
+    except Exception:
         pass
+
+    # === 知识库语义检索：从心理学书籍中检索相关内容 ===
+    try:
+        from knowledge.knowledge_base import search_books_semantic
+        book_results = search_books_semantic(user_message, max_results=3)
+        if book_results:
+            kb_lines = []
+            for item in book_results:
+                if item.get("similarity", 0) > 0.3:
+                    source = f"{item.get('book', '')}·{item.get('chapter', '')}"
+                    kb_lines.append(f"【{source}】{item['content'][:300]}")
+            if kb_lines:
+                context_hints.append(
+                    "[知识库参考] 以下是与用户话题相关的心理学知识，仅供你内部参考，"
+                    "不要直接照搬或引用书名，而是自然地融入对话中：\n"
+                    + "\n".join(kb_lines)
+                )
+    except Exception:
+        pass
+
+    # === 会话策略注入（非危机模式下）===
+    if session_id and not crisis_holding.active:
+        try:
+            from agent.session_strategy import load_session_strategy
+            strategy = await load_session_strategy(session_id)
+            if strategy:
+                goals_str = "→".join(strategy.stage_goals) if strategy.stage_goals else "待定"
+                techniques_str = "、".join(strategy.techniques) if strategy.techniques else "待定"
+                cautions_str = "、".join(strategy.cautions) if strategy.cautions else "无"
+                context_hints.append(
+                    f"[会话策略·第{strategy.version}版]\n"
+                    f"核心议题：{strategy.presenting_issue}\n"
+                    f"阶段目标：{goals_str}\n"
+                    f"主要方法：{strategy.primary_approach}\n"
+                    f"推荐技术：{techniques_str}\n"
+                    f"注意事项：{cautions_str}\n"
+                    f"[重要] 以上策略是你的内部工作计划，不要直接告诉用户。按此策略自然引导对话。"
+                )
+        except Exception:
+            pass
 
     if context_hints:
         context_enriched_prompt += "\n\n" + "\n".join(context_hints)
@@ -318,6 +479,13 @@ async def run_agent(
 
             if crisis_holding.active:
                 crisis_holding.advance()
+
+            # 尝试获取后台评估的 emotion（如果已完成）
+            if bg_emotion is None and bg_assess_task.done():
+                try:
+                    _, bg_emotion = bg_assess_task.result()
+                except Exception:
+                    pass
 
             return {
                 "text": final_text,
@@ -510,7 +678,6 @@ async def _meta_monitor(
                     ),
                 }],
                 max_tokens=1024,
-                model_override=light_model,
             )
             return (regen["text"] or response_text).strip()
     except Exception:

@@ -1,6 +1,7 @@
 """
 统一 LLM 客户端工厂——所有模块通过此模块调用 LLM
 支持 Provider：anthropic / deepseek / openrouter
+Light model 始终走 DeepSeek 官方直连
 """
 from config import settings
 
@@ -12,7 +13,7 @@ def _is_openai_compatible() -> bool:
 
 def get_async_client():
     """
-    获取异步 LLM 客户端。
+    获取异步 LLM 客户端（主模型）。
     - anthropic → anthropic.AsyncAnthropic
     - deepseek / openrouter → openai.AsyncOpenAI
     """
@@ -33,6 +34,15 @@ def get_async_client():
     else:
         import anthropic
         return anthropic.AsyncAnthropic()
+
+
+def get_light_client():
+    """获取轻量模型的异步客户端——始终走 DeepSeek 官方直连"""
+    from openai import AsyncOpenAI
+    return AsyncOpenAI(
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+    )
 
 
 def get_sync_client():
@@ -70,7 +80,5 @@ def get_model(override: str | None = None) -> str:
 
 
 def get_light_model() -> str:
-    """获取轻量模型名"""
-    if settings.llm_provider == "deepseek":
-        return settings.deepseek_model
+    """获取轻量模型名（DeepSeek 直连）"""
     return settings.light_model

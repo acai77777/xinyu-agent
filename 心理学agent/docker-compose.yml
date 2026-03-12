@@ -1,0 +1,45 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "127.0.0.1:8002:8000"
+    env_file:
+      - ./server/.env
+    environment:
+      - CHROMADB_HOST=chromadb
+      - CHROMADB_PORT=8000
+      - SQLITE_DB_PATH=/app/data/agent.db
+      - UPLOAD_DIR=/app/data/uploads
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - ENV=production
+      - DEBUG=false
+    volumes:
+      - server_data:/app/data
+      - upload_tmp:/app/data/uploads
+    depends_on:
+      chromadb:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  server_data:
+  chroma_data:
+  upload_tmp:

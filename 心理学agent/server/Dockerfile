@@ -2,14 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# 系统依赖（音频处理需要 ffmpeg）
+# 系统依赖（ffmpeg + C++编译器 for chromadb）
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
+    ffmpeg build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Python 依赖
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 
 # 应用代码
 COPY . .
