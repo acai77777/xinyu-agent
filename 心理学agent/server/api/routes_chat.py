@@ -175,11 +175,15 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             # 保存 AI 回复到数据库
             await _save_message(session_id, "assistant", response["text"])
 
-            # 第1轮对话结束后（history == 2条：1 user + 1 assistant），后台生成策略
-            if len(conversation_history) == 2:
-                asyncio.create_task(
-                    _generate_and_send_strategy(session_id, conversation_history, user_id)
-                )
+            # 后台生成策略（无策略时每轮尝试，有了就不再触发）
+            try:
+                existing_strategy = await load_session_strategy(session_id)
+                if not existing_strategy:
+                    asyncio.create_task(
+                        _generate_and_send_strategy(session_id, conversation_history, user_id)
+                    )
+            except Exception:
+                pass
 
             # 自动生成会话标题（首次对话时）
             if len(conversation_history) == 2:

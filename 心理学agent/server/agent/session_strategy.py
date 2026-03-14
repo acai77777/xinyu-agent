@@ -38,7 +38,11 @@ class SessionStrategy:
 SESSION_STRATEGY_PROMPT = """\
 你是一位资深心理咨询督导。根据以下对话记录和用户画像，为咨询师制定本次会话的咨询策略。
 
-要求：
+重要前提：
+如果对话内容不足以识别任何心理议题（如纯寒暄、闲聊、打招呼、日常问候），直接返回：{"skip": true}
+只有当用户表达了可识别的情绪困扰、心理议题或求助意图时，才生成完整策略。
+
+要求（仅在不跳过时执行）：
 1. 准确识别用户的核心议题（一句话）
 2. 判断用户当前阶段：crisis/distressed/diffuse/recovering/growing/flourishing
 3. 制定 2-3 个分阶段目标（由近及远）
@@ -113,6 +117,11 @@ async def generate_session_strategy(
             raw_text = raw_text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
         parsed = json.loads(raw_text)
+
+        if parsed.get("skip"):
+            logger.info(f"[Strategy] Skipped for session {session_id[:8]}: 对话内容不足以识别心理议题")
+            return None
+
         now = datetime.now(timezone.utc).isoformat()
 
         strategy = SessionStrategy(
