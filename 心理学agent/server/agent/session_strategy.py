@@ -59,6 +59,19 @@ SESSION_STRATEGY_PROMPT = """\
   "cautions": ["...", "..."],
   "user_summary": "..."
 }
+
+示例（用户说"每天加班到很晚，不知道这样的工作还有没有意义"）：
+{
+  "presenting_issue": "持续加班引发的疲惫感和对职业方向的迷茫",
+  "user_phase": "diffuse",
+  "stage_goals": ["倾听并确认用户的疲惫感受", "梳理压力来源与个人价值观的关系", "初步探索可行的调整方向"],
+  "primary_approach": "active_listening",
+  "techniques": ["开放式提问", "情绪反映", "价值观澄清", "优势发掘"],
+  "expected_exercises": ["正念呼吸"],
+  "cautions": ["用户尚在倾诉阶段，不要急于给出职业建议", "注意区分身体疲劳与心理倦怠"],
+  "user_summary": "感觉你最近承受了不少压力，我们可以一起看看是什么在消耗你的能量。"
+}
+
 只返回 JSON，不要多余文字。"""
 
 

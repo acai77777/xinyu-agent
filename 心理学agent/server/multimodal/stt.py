@@ -1,77 +1,119 @@
 """
-语音转文字——Whisper API
+语音转文字——通过 LLM 多模态能力实现
 心理咨询场景中，语音比文字更能传递情绪（语调、停顿、哽咽）
-Phase 4 先用 API，Phase 5 评估本地 Whisper 模型
+使用主模型（Gemini Flash 等）通过 OpenRouter 处理音频输入
 """
+import base64
+import json
+import logging
+
 import httpx
-from config import settings
+
+logger = logging.getLogger(__name__)
 
 
-async def transcribe(audio_path: str) -> str:
+async def transcribe(audio_source: str) -> str:
     """
     将音频文件转为文字
 
-    参数：audio_path 可以是本地路径或上传后的临时路径
+    参数：audio_source 可以是本地路径或 URL
     返回：转写文本
-
-    权衡：
-    - Whisper large-v3 准确率最高，但 API 成本 $0.006/min
-    - 心理对话通常单条语音 < 60s，成本可控
-    - 中文识别准确率 > 95%，满足需求
     """
-    async with httpx.AsyncClient() as client:
-        with open(audio_path, "rb") as f:
-            response = await client.post(
-                "https://api.openai.com/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
-                files={"file": ("audio.m4a", f, "audio/m4a")},
-                data={
-                    "model": "whisper-1",
-                    "language": "zh",
-                    "response_format": "verbose_json",
-                },
-            )
-    result = response.json()
-    return result.get("text", "")
+    result = await transcribe_with_emotion_hints(audio_source)
+    return result["text"]
 
 
-async def transcribe_with_emotion_hints(audio_path: str) -> dict:
+async def transcribe_with_emotion_hints(audio_source: str) -> dict:
     """
-    增强版转写——提取语音情绪线索
+    增强版转写——同时提取语音情绪线索
 
-    Whisper verbose_json 返回 segments 包含：
-    - no_speech_prob：静默概率（高值可能表示犹豫、哽咽）
-    - avg_logprob：识别置信度（低值可能表示含糊不清、哭泣）
+    通过 LLM 多模态能力一次性完成转写+情绪分析：
+    - 转写语音内容
+    - 从语调、语速、停顿等线索推断情绪状态
 
-    这些信号可以辅助情绪评估，但不作为主要依据
+    返回：{"text": str, "emotion_hints": list[str], "duration_seconds": 0}
     """
-    async with httpx.AsyncClient() as client:
-        with open(audio_path, "rb") as f:
-            response = await client.post(
-                "https://api.openai.com/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {settings.openai_api_key}"},
-                files={"file": ("audio.m4a", f, "audio/m4a")},
-                data={
-                    "model": "whisper-1",
-                    "language": "zh",
-                    "response_format": "verbose_json",
-                },
-            )
-    result = response.json()
+    from llm_client import get_async_client, get_model
 
-    # 提取语音情绪线索
-    segments = result.get("segments", [])
-    long_pauses = sum(1 for s in segments if s.get("no_speech_prob", 0) > 0.5)
-    low_confidence = sum(1 for s in segments if s.get("avg_logprob", 0) < -0.8)
+    client = get_async_client()
+    model = get_model()
+    audio_data = await _load_audio(audio_source)
 
-    emotion_hints = []
-    if long_pauses > 2:
-        emotion_hints.append("语音中有较多停顿，用户可能在犹豫或情绪波动")
-    if low_confidence > 1:
-        emotion_hints.append("部分语音识别置信度低，用户可能在哭泣或声音颤抖")
+    prompt = (
+        "你是一位心理咨询助手的语音分析模块。请完成以下任务：\n\n"
+        "1. 将这段音频精确转写为文字\n"
+        "2. 从语音特征中分析情绪线索（语调、语速、停顿、颤抖、哽咽等）\n\n"
+        "返回严格的 JSON 格式，不要包含其他内容：\n"
+        '{"text": "转写的完整文字", "emotion_hints": ["情绪线索1", "情绪线索2"]}\n\n'
+        "注意：\n"
+        "- text 必须是完整准确的转写\n"
+        "- emotion_hints 是字符串数组，每条描述一个观察到的语音情绪特征\n"
+        "- 如果没有明显的情绪线索，emotion_hints 返回空数组\n"
+        "- 用描述性语言，不要下诊断结论"
+    )
+
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            max_tokens=1024,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {
+                            "data": audio_data["base64"],
+                            "format": audio_data["format"],
+                        },
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }],
+        )
+        raw_text = response.choices[0].message.content or ""
+        parsed = _parse_json_safe(raw_text)
+        return {
+            "text": parsed.get("text", ""),
+            "emotion_hints": parsed.get("emotion_hints", []),
+            "duration_seconds": 0,
+        }
+    except Exception as e:
+        logger.error(f"[STT] LLM transcribe failed: {e}")
+        return {"text": "", "emotion_hints": [], "duration_seconds": 0}
+
+
+async def _load_audio(source: str) -> dict:
+    """加载音频并转为 base64"""
+    if source.startswith(("http://", "https://")):
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(source)
+            data = resp.content
+    else:
+        with open(source, "rb") as f:
+            data = f.read()
+
+    ext = source.rsplit(".", 1)[-1].lower()
+    fmt = {
+        "mp3": "mp3",
+        "wav": "wav",
+        "m4a": "m4a",
+        "ogg": "ogg",
+        "flac": "flac",
+        "webm": "webm",
+    }.get(ext, "mp3")
 
     return {
-        "text": result.get("text", ""),
-        "emotion_hints": emotion_hints,
-        "duration_seconds": result.get("duration", 0),
+        "base64": base64.standard_b64encode(data).decode("utf-8"),
+        "format": fmt,
     }
+
+
+def _parse_json_safe(text: str) -> dict:
+    """安全解析 JSON，处理 markdown 代码块包裹"""
+    try:
+        raw = text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        return json.loads(raw)
+    except (json.JSONDecodeError, IndexError):
+        return {"text": text, "emotion_hints": []}

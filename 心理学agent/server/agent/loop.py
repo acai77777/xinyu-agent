@@ -300,6 +300,7 @@ async def run_agent(
     system_prompt: str | None = None,
     crisis_holding: CrisisHolding | None = None,
     session_id: str | None = None,
+    multimodal_context: list[str] | None = None,
 ) -> dict:
     """
     Agent主循环：
@@ -451,6 +452,9 @@ async def run_agent(
                 )
         except Exception:
             pass
+
+    if multimodal_context:
+        context_hints.extend(multimodal_context)
 
     if context_hints:
         context_enriched_prompt += "\n\n" + "\n".join(context_hints)

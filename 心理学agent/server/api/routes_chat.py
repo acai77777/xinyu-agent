@@ -117,14 +117,35 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             # 根据消息类型预处理
             user_text = msg.get("content", "")
             msg_type = msg.get("type", "text")
+            multimodal_context = []
 
             if msg_type == "voice":
+                audio_url = msg.get("metadata", {}).get("audio_url", "")
+                if audio_url:
+                    try:
+                        from multimodal.stt import transcribe_with_emotion_hints
+                        stt_result = await transcribe_with_emotion_hints(audio_url)
+                        user_text = stt_result["text"] or user_text
+                        if stt_result.get("emotion_hints"):
+                            multimodal_context.append(
+                                f"[语音情绪线索] {'；'.join(stt_result['emotion_hints'])}"
+                            )
+                    except Exception as e:
+                        logger.warning(f"[STT] transcribe failed: {e}")
                 await manager.send_json(session_id, {
                     "type": "transcription",
                     "content": user_text,
                 })
 
             if msg_type == "image":
+                image_url = msg.get("metadata", {}).get("image_url", "")
+                if image_url:
+                    try:
+                        from multimodal.vision import analyze_image
+                        vision_result = await analyze_image(image_url, user_context=user_text)
+                        multimodal_context.append(f"[图片分析] {vision_result}")
+                    except Exception as e:
+                        logger.warning(f"[Vision] analyze_image failed: {e}")
                 user_text = f"[用户发送了一张图片] {user_text}"
 
             # 保存用户消息到数据库
@@ -141,6 +162,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     user_id=user_id,
                     crisis_holding=crisis_holding,
                     session_id=session_id,
+                    multimodal_context=multimodal_context if multimodal_context else None,
                 )
             except Exception as e:
                 print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)

@@ -21,11 +21,10 @@ async def analyze_image(
     - image_source: 图片路径或 URL
     - user_context: 用户附带的文字说明
     """
-    from llm_client import get_async_client, get_light_model, _is_openai_compatible
-    from config import settings
+    from llm_client import get_async_client, get_model, _is_openai_compatible
 
     client = get_async_client()
-    model = get_light_model()
+    model = get_model()
     image_data = await _load_image(image_source)
 
     text_prompt = (
