@@ -13,6 +13,8 @@ from agent.loop import (
     _is_deepseek,
     _post_safety_check,
     _check_alliance,
+    _meta_monitor,
+    _rule_based_fix,
 )
 
 
@@ -115,28 +117,35 @@ class TestPostSafetyCheck:
         text = "我理解你的感受，让我们一起想想办法。"
         assert _post_safety_check(text) == text
 
-    def test_forbidden_stop_medicine(self):
-        """包含 '停药' → 追加免责声明"""
+    def test_forbidden_stop_medicine_replaced(self):
+        """包含 '停药' → 有害内容被替换 + 追加免责声明"""
         text = "你可以考虑停药试试。"
         result = _post_safety_check(text)
+        assert "停药" not in result.split("（提醒")[0]  # 原文中"停药"被替换
+        assert "咨询你的医生" in result
         assert "提醒" in result
-        assert "医疗建议" in result or "咨询" in result
 
-    def test_forbidden_no_doctor(self):
-        """包含 '不需要看医生' → 追加免责声明"""
+    def test_forbidden_no_doctor_replaced(self):
+        """包含 '不需要看医生' → 被替换为安全文本"""
         text = "你不需要看医生，自己调节就好。"
         result = _post_safety_check(text)
+        assert "不需要看医生" not in result.split("（提醒")[0]
+        assert "专业医生" in result
         assert "提醒" in result
 
-    def test_forbidden_diagnosis(self):
-        """包含 '你有抑郁症' → 追加免责声明"""
+    def test_forbidden_diagnosis_replaced(self):
+        """包含 '你有抑郁症' → 被替换"""
         text = "根据你描述的情况，你有抑郁症。"
         result = _post_safety_check(text)
+        assert "你有抑郁症" not in result.split("（提醒")[0]
+        assert "专业人士" in result
         assert "提醒" in result
 
-    def test_forbidden_reduce_medicine(self):
+    def test_forbidden_reduce_medicine_replaced(self):
         text = "可以尝试减少药量。"
         result = _post_safety_check(text)
+        assert "减少药量" not in result.split("（提醒")[0]
+        assert "医生指导" in result
         assert "提醒" in result
 
     def test_safe_text_no_disclaimer(self):
@@ -144,6 +153,35 @@ class TestPostSafetyCheck:
         text = "听起来你最近压力很大，能跟我多说说吗？"
         result = _post_safety_check(text)
         assert "提醒" not in result
+
+    def test_multiple_forbidden_all_replaced(self):
+        """多个禁止词同时命中，全部替换，免责只追加一次"""
+        text = "你可以停药，也不需要看医生。"
+        result = _post_safety_check(text)
+        assert "停药" not in result.split("（提醒")[0]
+        assert "不需要看医生" not in result.split("（提醒")[0]
+        assert result.count("（提醒") == 1
+
+    def test_new_forbidden_self_adjust_medicine(self):
+        """新增禁止词 '自行调整用药' 能命中"""
+        text = "你可以自行调整用药。"
+        result = _post_safety_check(text)
+        assert "自行调整用药" not in result.split("（提醒")[0]
+        assert "提醒" in result
+
+    def test_new_forbidden_no_hospital(self):
+        """新增禁止词 '不用去医院' 能命中"""
+        text = "不用去医院，休息一下就好。"
+        result = _post_safety_check(text)
+        assert "不用去医院" not in result.split("（提醒")[0]
+        assert "提醒" in result
+
+    def test_new_forbidden_stop_taking_medicine(self):
+        """新增禁止词 '别吃药了' 能命中"""
+        text = "别吃药了，副作用太大。"
+        result = _post_safety_check(text)
+        assert "别吃药了" not in result.split("（提醒")[0]
+        assert "提醒" in result
 
 
 # =====================================================================
@@ -197,6 +235,123 @@ class TestSystemPrompt:
 # =====================================================================
 # 6. LLM Provider 切换
 # =====================================================================
+
+# =====================================================================
+# 7. 元认知监视器规则引擎测试
+# =====================================================================
+
+class TestMetaMonitorRules:
+    """测试 _meta_monitor 的规则引擎（第一层，不触发 LLM）"""
+
+    # --- P2：新增有害表达模式 ---
+
+    @pytest.mark.asyncio
+    async def test_harmful_stop_medicine(self):
+        """'你不需要吃药' 应被替换"""
+        text = "你不需要吃药，靠自己调节就行。"
+        result = await _meta_monitor(text, "我要不要吃药", [])
+        assert "你不需要吃药" not in result
+        assert "医生" in result
+
+    @pytest.mark.asyncio
+    async def test_harmful_think_positive(self):
+        """'想开点' 应被替换"""
+        text = "想开点，事情没那么糟。"
+        result = await _meta_monitor(text, "我好难过", [])
+        assert "想开点" not in result
+        assert "不容易" in result
+
+    @pytest.mark.asyncio
+    async def test_harmful_dont_overthink(self):
+        """'别想太多' 应被替换"""
+        text = "别想太多，睡一觉就好了。"
+        result = await _meta_monitor(text, "我总是胡思乱想", [])
+        assert "别想太多" not in result
+        assert "有道理" in result or "梳理" in result
+
+    @pytest.mark.asyncio
+    async def test_harmful_forced_forgiveness(self):
+        """'你应该原谅' 应被替换"""
+        text = "你应该原谅他，这样你才能解脱。"
+        result = await _meta_monitor(text, "我恨那个人", [])
+        assert "你应该原谅" not in result
+        assert "时间" in result or "过程" in result
+
+    @pytest.mark.asyncio
+    async def test_harmful_trivialize(self):
+        """'你这是正常的' 应被替换"""
+        text = "你这是正常的，每个人都会这样。"
+        result = await _meta_monitor(text, "我快崩溃了", [])
+        assert "你这是正常的" not in result
+        assert "真实" in result or "认真对待" in result
+
+    # --- P1：正向表达不被误替换 ---
+
+    @pytest.mark.asyncio
+    async def test_positive_youre_right_exercise(self):
+        """'你说得对，坚持运动有帮助' 不应被替换（语境排除）"""
+        text = "你说得对，坚持运动有帮助。"
+        result = await _meta_monitor(text, "我觉得运动让我心情好了", [])
+        assert "你说得对" in result
+
+    @pytest.mark.asyncio
+    async def test_positive_youre_right_method(self):
+        """'你说得对，这个方法很有效' 不应被替换"""
+        text = "你说得对，这个方法确实有效。"
+        result = await _meta_monitor(text, "我觉得写日记有用", [])
+        assert "你说得对" in result
+
+    @pytest.mark.asyncio
+    async def test_positive_youre_really_brave(self):
+        """'你确实很有勇气' 不应被替换（语境排除）"""
+        text = "你确实很有勇气，能说出这些不容易。"
+        result = await _meta_monitor(text, "我第一次跟别人说这些", [])
+        assert "你确实很" in result
+        assert "勇气" in result
+
+    @pytest.mark.asyncio
+    async def test_positive_youre_really_strong(self):
+        """'你确实很坚强' 不应被替换"""
+        text = "你确实很坚强，一直在努力。"
+        result = await _meta_monitor(text, "我一个人撑了很久", [])
+        assert "你确实很" in result
+        assert "坚强" in result
+
+    # --- P1：消极表达仍然被替换 ---
+
+    @pytest.mark.asyncio
+    async def test_negative_youre_right_useless(self):
+        """'你说得对，你就是没用的人' 应被替换"""
+        text = "你说得对，你就是没用的人。"
+        result = await _meta_monitor(text, "我觉得自己什么都做不好", [])
+        assert "你说得对" not in result
+        assert "听到你的感受" in result
+
+    @pytest.mark.asyncio
+    async def test_negative_youre_really_bad(self):
+        """'你确实很差劲' 应被替换（无排除词）"""
+        text = "你确实很差劲，难怪别人都不喜欢你。"
+        result = await _meta_monitor(text, "为什么没人喜欢我", [])
+        assert "你确实很差劲" not in result
+
+    # --- 原有规则仍然有效 ---
+
+    @pytest.mark.asyncio
+    async def test_sycophancy_no_hope(self):
+        """'确实没救' 应被替换"""
+        text = "确实没救了，你说得没错。"
+        result = await _meta_monitor(text, "我觉得没希望了", [])
+        assert "确实没救" not in result
+        assert "痛苦" in result
+
+    @pytest.mark.asyncio
+    async def test_promise_guarantee(self):
+        """'我保证' 应被替换"""
+        text = "我保证你会好的。"
+        result = await _meta_monitor(text, "我还能好起来吗", [])
+        assert "我保证" not in result
+        assert "希望" in result
+
 
 class TestProviderSwitch:
 

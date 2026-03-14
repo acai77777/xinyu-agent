@@ -476,8 +476,13 @@ async def run_agent(
         if result["stop_reason"] != "tool_use":
             final_text = result["text"] or ""
 
+            should_semantic_review = (
+                risk.level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
+                or (crisis_holding is not None and crisis_holding.active)
+            )
             final_text = await _meta_monitor(
-                final_text, user_message, conversation_history
+                final_text, user_message, conversation_history,
+                user_risk_history=should_semantic_review,
             )
             final_text = _post_safety_check(final_text)
 
@@ -617,25 +622,43 @@ async def _meta_monitor(
     - 第一层：规则引擎（零成本）
     - 第二层：语义审核（仅高风险用户）
     """
+    # 三元组: (pattern, issue, exclude_contexts)
+    # exclude_contexts: 当 pattern 前后 10 个字符内包含排除词时跳过替换
     sycophancy_patterns = [
-        ("你说得对", "顺从性确认：附和了用户的消极自我评价"),
-        ("确实没救", "顺从性确认：确认了用户的绝望感"),
-        ("你确实很", "顺从性确认：强化了用户的消极自我认知"),
+        ("你说得对", "顺从性确认：附和了用户的消极自我评价", ["运动", "坚持", "努力", "尝试", "帮助", "有道理", "方法"]),
+        ("确实没救", "顺从性确认：确认了用户的绝望感", []),
+        ("你确实很", "顺从性确认：强化了用户的消极自我认知", ["勇气", "勇敢", "坚强", "棒", "努力", "优秀", "了不起"]),
     ]
     promise_patterns = [
-        ("我保证", "过度承诺：做出了不切实际的保证"),
-        ("你一定会好起来", "过度承诺：给出了无法兑现的承诺"),
-        ("肯定能", "过度承诺：过于乐观的断言"),
+        ("我保证", "过度承诺：做出了不切实际的保证", []),
+        ("你一定会好起来", "过度承诺：给出了无法兑现的承诺", []),
+        ("肯定能", "过度承诺：过于乐观的断言", []),
     ]
     diagnosis_patterns = [
-        ("你可能有抑郁", "隐性诊断：暗示用户有精神疾病"),
-        ("这是焦虑症的表现", "隐性诊断：做出了诊断性表述"),
-        ("你的症状", "隐性诊断：使用了临床诊断语言"),
+        ("你可能有抑郁", "隐性诊断：暗示用户有精神疾病", []),
+        ("这是焦虑症的表现", "隐性诊断：做出了诊断性表述", []),
+        ("你的症状", "隐性诊断：使用了临床诊断语言", []),
+    ]
+    harmful_advice_patterns = [
+        ("你不需要吃药", "劝停药：干预用户的医疗决策", []),
+        ("药物副作用很大", "劝停药：暗示用户停药", []),
+        ("想开点", "无效安慰：使用了轻视性安慰", []),
+        ("别想太多", "无效安慰：使用了轻视性安慰", []),
+        ("你应该原谅", "强迫宽恕：施加道德压力", []),
+        ("你这是正常的", "轻视问题：忽略了用户的严重问题", []),
     ]
 
-    all_patterns = sycophancy_patterns + promise_patterns + diagnosis_patterns
-    for pattern, issue in all_patterns:
+    all_patterns = sycophancy_patterns + promise_patterns + diagnosis_patterns + harmful_advice_patterns
+    for pattern, issue, exclude_contexts in all_patterns:
         if pattern in response_text:
+            # 语境排除：检查 pattern 前后各 10 个字符是否包含排除词
+            if exclude_contexts:
+                idx = response_text.index(pattern)
+                start = max(0, idx - 10)
+                end = min(len(response_text), idx + len(pattern) + 10)
+                context_window = response_text[start:end]
+                if any(ex in context_window for ex in exclude_contexts):
+                    continue
             return _rule_based_fix(response_text, pattern, issue)
 
     if not user_risk_history:
@@ -702,6 +725,12 @@ def _rule_based_fix(response_text: str, matched_pattern: str, issue: str) -> str
         "你可能有抑郁": "你描述的这些感受听起来很沉重",
         "这是焦虑症的表现": "你描述的这些体验",
         "你的症状": "你的感受",
+        "你不需要吃药": "关于用药的问题，建议你和医生详细讨论",
+        "药物副作用很大": "关于药物的顾虑，建议你和医生充分沟通",
+        "想开点": "我理解这对你来说很不容易",
+        "别想太多": "你的感受是有道理的，我们可以一起慢慢梳理",
+        "你应该原谅": "关于原谅，这是一个需要时间的过程，没有人可以强迫你",
+        "你这是正常的": "你的感受对你来说是真实的，值得被认真对待",
     }
     replacement = safe_replacements.get(matched_pattern, "")
     if replacement:
@@ -710,11 +739,25 @@ def _rule_based_fix(response_text: str, matched_pattern: str, issue: str) -> str
 
 
 def _post_safety_check(text: str) -> str:
-    """输出审核：确保Agent不会给出有害建议"""
-    forbidden_patterns = ["停药", "减少药量", "不需要看医生", "你有抑郁症"]
-    for pattern in forbidden_patterns:
+    """输出审核：确保Agent不会给出有害建议——命中时先替换有害内容，再追加免责声明"""
+    forbidden_replacements = {
+        "停药": "关于药物调整，请务必咨询你的医生",
+        "减少药量": "药量调整需要在医生指导下进行",
+        "不需要看医生": "如果你觉得困扰持续存在，看看专业医生可能会有帮助",
+        "你有抑郁症": "你描述的这些感受听起来很沉重，建议和专业人士聊聊",
+        "自行调整用药": "用药调整需要在医生指导下进行",
+        "不用去医院": "如果你感到不舒服，去医院检查一下可能会更安心",
+        "不需要吃药": "关于用药的问题，建议你和医生详细讨论",
+        "不用看心理医生": "专业的心理咨询师可能会给你更系统的支持",
+        "别吃药了": "关于用药的问题，请和你的医生商量",
+    }
+    hit = False
+    for pattern, replacement in forbidden_replacements.items():
         if pattern in text:
-            return text + "\n\n（提醒：以上仅为情感支持，不构成医疗建议。如有需要，请咨询专业心理咨询师或医生。）"
+            text = text.replace(pattern, replacement)
+            hit = True
+    if hit:
+        text += "\n\n（提醒：以上仅为情感支持，不构成医疗建议。如有需要，请咨询专业心理咨询师或医生。）"
     return text
 
 
