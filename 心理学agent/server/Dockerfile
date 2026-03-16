@@ -11,6 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
 
+# 预下载 ChromaDB embedding 模型（避免运行时下载 79MB 卡住）
+RUN python -c "\
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2; \
+ef = ONNXMiniLM_L6_V2(); \
+print('Embedding model ready')"
+
 # 应用代码
 COPY . .
 

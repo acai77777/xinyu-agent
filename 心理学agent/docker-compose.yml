@@ -16,6 +16,7 @@ services:
     volumes:
       - server_data:/app/data
       - upload_tmp:/app/data/uploads
+      - onnx_cache:/root/.cache/chroma
     depends_on:
       chromadb:
         condition: service_healthy
@@ -43,3 +44,4 @@ volumes:
   server_data:
   chroma_data:
   upload_tmp:
+  onnx_cache:

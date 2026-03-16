@@ -127,16 +127,30 @@ async def _semantic_classify(text: str) -> RiskAssessment:
     client = get_async_client()
     model = get_light_model()
 
-    system_msg = "你是心理危机风险评估专家。判断用户文本是否包含自伤/自杀风险。"
+    system_msg = (
+        "你是心理危机风险评估专家。判断用户文本是否包含自伤/自杀风险。\n"
+        "判断要点：\n"
+        "- 区分用户本人的意图 vs 讨论他人/影视作品\n"
+        "- 识别隐喻性表达（如告别行为、暗示性语言、意象化死亡描述）\n"
+        "- 反讽或玩笑语境应降低风险等级\n"
+        "- 只返回JSON，不要解释"
+    )
     user_content = (
-        f'判断以下文本的自伤/自杀风险等级，返回JSON：\n'
-        f'文本："{text}"\n\n'
-        f'判断要点：\n'
-        f'- 区分用户本人的意图 vs 讨论他人/影视作品\n'
-        f'- 识别隐喻性表达（如"永远睡过去"、"把猫托付给邻居"等告别行为）\n'
-        f'- 反讽或玩笑语境应降低风险等级\n\n'
-        f'返回格式：{{"risk_level": "critical/high/medium/low", '
-        f'"is_first_person": true/false, "reasoning": "简短理由"}}'
+        '判断以下文本的自伤/自杀风险等级，返回JSON。\n\n'
+        '--- 示例 ---\n'
+        '文本："我已经写好了遗书，今晚就从楼上跳下去。"\n'
+        '返回：{"risk_level": "critical", "is_first_person": true}\n\n'
+        '文本："好累啊，想去一个没有烦恼的地方永远睡着，把猫托付给邻居吧。"\n'
+        '返回：{"risk_level": "high", "is_first_person": true}\n\n'
+        '文本："昨天看新闻说有人跳楼自杀了，太可惜了。"\n'
+        '返回：{"risk_level": "low", "is_first_person": false}\n\n'
+        '文本："最近压力很大，每天都失眠，感觉快撑不住了。"\n'
+        '返回：{"risk_level": "medium", "is_first_person": true}\n\n'
+        '文本："今天工作好烦，真想把电脑砸了。"\n'
+        '返回：{"risk_level": "low", "is_first_person": true}\n\n'
+        '--- 正式判断 ---\n'
+        f'文本："{text}"\n'
+        f'返回：'
     )
 
     try:

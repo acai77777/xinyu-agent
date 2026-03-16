@@ -201,17 +201,26 @@ class TestEmotionParsing:
     def test_parse_valid(self):
         resp = self._make_response(
             '{"primary_emotion": "焦虑", "intensity": 7, '
-            '"secondary_emotions": ["恐惧"], "valence": "negative"}'
+            '"secondary_emotions": ["恐惧"], "valence": "消极"}'
         )
         result = _parse_emotion_response(resp)
         assert result["primary_emotion"] == "焦虑"
         assert result["intensity"] == 7
-        assert result["valence"] == "negative"
+        assert result["valence"] == "消极"
+
+    def test_parse_english_valence_mapped_to_cn(self):
+        """LLM 偶尔输出英文 valence，应自动映射为中文"""
+        resp = self._make_response(
+            '{"primary_emotion": "焦虑", "intensity": 7, '
+            '"secondary_emotions": ["恐惧"], "valence": "negative"}'
+        )
+        result = _parse_emotion_response(resp)
+        assert result["valence"] == "消极"
 
     def test_parse_clamps_intensity(self):
         resp = self._make_response(
             '{"primary_emotion": "开心", "intensity": 15, '
-            '"secondary_emotions": [], "valence": "positive"}'
+            '"secondary_emotions": [], "valence": "积极"}'
         )
         result = _parse_emotion_response(resp)
         assert result["intensity"] == 10  # clamped
@@ -220,7 +229,7 @@ class TestEmotionParsing:
         resp = self._make_response("not json")
         result = _parse_emotion_response(resp)
         assert result["primary_emotion"] == "未知"
-        assert result["valence"] == "neutral"
+        assert result["valence"] == "中性"
 
     def test_emotion_categories_coverage(self):
         """情绪分类体系应包含三个大类"""
@@ -237,34 +246,50 @@ class TestEmotionParsing:
 
 class TestDistortionKeywords:
 
-    def test_all_or_nothing_keyword(self):
+    def test_all_or_nothing_pattern(self):
         """'总是' 应触发全或无思维候选"""
+        import re
         info = KEYWORD_PATTERNS["all_or_nothing"]
-        assert any(kw in "我总是做不好" for kw in info["keywords"])
+        assert any(re.search(p, "我总是做不好") for p in info["patterns"])
 
-    def test_mind_reading_keyword(self):
+    def test_mind_reading_pattern(self):
+        import re
         info = KEYWORD_PATTERNS["mind_reading"]
-        assert any(kw in "他肯定觉得我很蠢" for kw in info["keywords"])
+        assert any(re.search(p, "他肯定觉得我很蠢") for p in info["patterns"])
 
-    def test_fortune_telling_keyword(self):
+    def test_fortune_telling_pattern(self):
+        import re
         info = KEYWORD_PATTERNS["fortune_telling"]
-        assert any(kw in "这次面试肯定会搞砸" for kw in info["keywords"])
+        assert any(re.search(p, "这次面试肯定会搞砸") for p in info["patterns"])
 
     def test_15_distortion_types(self):
         """应有 15 种认知扭曲"""
         assert len(KEYWORD_PATTERNS) == 15
 
-    def test_each_type_has_keywords(self):
+    def test_each_type_has_patterns(self):
         for key, info in KEYWORD_PATTERNS.items():
             assert "name" in info
             assert "name_en" in info
-            assert len(info["keywords"]) > 0
+            assert len(info["patterns"]) > 0
 
-    def test_positive_context_no_candidate(self):
-        """积极语境——'我总是很开心' 关键词层会命中，但语义层应排除"""
-        # 关键词层确实会命中（这是预期的，语义层负责排除）
+    def test_positive_context_still_matches(self):
+        """积极语境——'我总是很开心' 正则层会命中，但语义层应排除"""
+        import re
         info = KEYWORD_PATTERNS["all_or_nothing"]
-        assert any(kw in "我总是很开心" for kw in info["keywords"])
+        assert any(re.search(p, "我总是很开心") for p in info["patterns"])
+
+    def test_pattern_catches_variants(self):
+        """正则应匹配关键词变体"""
+        import re
+        # "从来不" 是 "从不" 的变体
+        info = KEYWORD_PATTERNS["all_or_nothing"]
+        assert any(re.search(p, "我从来不被重视") for p in info["patterns"])
+        # "每回都" 是 "每次都" 的变体
+        info = KEYWORD_PATTERNS["overgeneralization"]
+        assert any(re.search(p, "每回都这样") for p in info["patterns"])
+        # "我真是个" 是 "我就是个" 的变体
+        info = KEYWORD_PATTERNS["labeling"]
+        assert any(re.search(p, "我真是个废物") for p in info["patterns"])
 
 
 class TestDistortionParsing:

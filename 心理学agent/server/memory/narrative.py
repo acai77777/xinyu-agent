@@ -11,6 +11,16 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 
 from config import settings
+from assessment.emotion import EMOTION_CATEGORIES
+
+
+def _emotion_score(emotion_name: str, intensity: int) -> float:
+    """将 (情绪名, 强度) 转为有向分数：积极→+intensity，消极→-intensity，中性/未知→0"""
+    if emotion_name in EMOTION_CATEGORIES["positive"]:
+        return float(intensity)
+    elif emotion_name in EMOTION_CATEGORIES["negative"]:
+        return float(-intensity)
+    return 0.0
 
 
 @dataclass
@@ -112,23 +122,23 @@ class NarrativeMemory:
         if len(snapshots) < 2:
             return
 
-        # 规则引擎：始终更新趋势（零成本）
-        first_intensity = snapshots[0].get("intensity", 5)
-        last_intensity = snapshots[-1].get("intensity", 5)
-        diff = last_intensity - first_intensity
+        # 规则引擎：用有向分数计算趋势（积极→正，消极→负）
+        scores = [
+            _emotion_score(s.get("primary_emotion", ""), s.get("intensity", 5))
+            for s in snapshots
+        ]
+        diff = scores[-1] - scores[0]
 
-        if abs(diff) <= 1:
-            trend = "stable"
-        elif diff > 1:
+        if diff > 2:
+            trend = "improving"
+        elif diff < -2:
             trend = "worsening"
         else:
-            directions = [
-                snapshots[i + 1].get("intensity", 5) - snapshots[i].get("intensity", 5)
-                for i in range(len(snapshots) - 1)
-            ]
+            # |diff| <= 2：看中间波动方向
+            directions = [scores[i + 1] - scores[i] for i in range(len(scores) - 1)]
             has_up = any(d > 0 for d in directions)
             has_down = any(d < 0 for d in directions)
-            trend = "fluctuating" if (has_up and has_down) else "improving"
+            trend = "fluctuating" if (has_up and has_down) else "stable"
 
         # 判断是否需要调 LLM 生成详细摘要
         need_llm = (
@@ -150,13 +160,22 @@ class NarrativeMemory:
                 for s in snapshots[-10:]
             ])
 
-            system_msg = "你是心理咨询记录分析师。根据用户的情绪时间线，生成简洁的叙事摘要。"
+            system_msg = (
+                "你是心理咨询记录分析师。根据用户的情绪时间线，生成简洁的叙事摘要。"
+                "必须使用中文输出所有内容。不要使用 markdown 代码块包裹 JSON。"
+            )
             user_content = (
                 f"主题：{arc['theme']}\n"
                 f"情绪时间线：\n{timeline}\n\n"
-                f"请返回JSON：\n"
+                f"请直接返回JSON（不要用```包裹）：\n"
                 f'{{"summary": "用第三人称描述这段情感经历的演变（2-3句话）", '
-                f'"trend": "improving/worsening/fluctuating/stable"}}'
+                f'"trend": "improving/worsening/fluctuating/stable"}}\n\n'
+                f"--- 示例 ---\n"
+                f"时间线：焦虑(8) → 焦虑(6) → 平静(4)\n"
+                f'{{"summary": "用户从高强度焦虑逐步缓解，最终趋于平静，情绪整体好转。", "trend": "improving"}}\n\n'
+                f"时间线：快乐(7) → 悲伤(5) → 快乐(6) → 焦虑(4)\n"
+                f'{{"summary": "用户情绪在积极与消极之间反复切换，尚未形成稳定状态。", "trend": "fluctuating"}}\n\n'
+                f"--- 正式分析 ---\n"
             )
 
             try:
@@ -180,7 +199,12 @@ class NarrativeMemory:
                     raw_text = response.content[0].text.strip()
                 result = json.loads(raw_text)
                 summary = result.get("summary", summary)
-                trend = result.get("trend", trend)
+                # 融合策略：规则引擎有方向性判断时以规则为准，否则采纳 LLM 意见
+                llm_trend = result.get("trend")
+                if trend in ("stable", "fluctuating") and llm_trend in (
+                    "improving", "worsening", "fluctuating", "stable",
+                ):
+                    trend = llm_trend
             except Exception:
                 # LLM 失败时用规则引擎生成模板摘要
                 emotions = [s["primary_emotion"] for s in snapshots]
