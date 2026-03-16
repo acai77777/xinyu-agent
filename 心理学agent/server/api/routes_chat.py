@@ -59,7 +59,7 @@ async def _save_message(session_id: str, role: str, content: str, msg_type: str 
 
 
 async def _load_history(session_id: str) -> list[dict]:
-    """从数据库加载会话历史"""
+    """从数据库加载会话历史（完整版，供内存追加用）"""
     db = await get_db()
     try:
         cursor = await db.execute(
@@ -74,19 +74,116 @@ async def _load_history(session_id: str) -> list[dict]:
         await db.close()
 
 
+async def _load_latest_summary(session_id: str) -> dict | None:
+    """
+    加载最新的压缩摘要。
+    返回 dict: {summary_text, compressed_up_to_msg_id, compressed_count,
+                incremental_rounds, safety_pins}
+    或 None（无摘要）。
+    """
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            """SELECT summary_text, compressed_up_to_msg_id, compressed_count,
+                      incremental_rounds, safety_pins_json
+               FROM conversation_summaries
+               WHERE session_id = ?
+               ORDER BY summary_version DESC LIMIT 1""",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "summary_text": row[0],
+            "compressed_up_to_msg_id": row[1],
+            "compressed_count": row[2],
+            "incremental_rounds": row[3],
+            "safety_pins": json.loads(row[4]) if row[4] else [],
+        }
+    finally:
+        await db.close()
+
+
+async def _save_summary(
+    session_id: str,
+    summary_text: str,
+    compressed_up_to_msg_id: int,
+    compressed_count: int,
+    incremental_rounds: int,
+    safety_pins: list[dict],
+) -> None:
+    """将压缩摘要写入 DB，版本号自增。"""
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT MAX(summary_version) FROM conversation_summaries WHERE session_id = ?",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+        next_version = (row[0] or 0) + 1
+
+        pins_json = json.dumps(
+            [{"role": m["role"], "content": m["content"]} for m in safety_pins],
+            ensure_ascii=False,
+        )
+        await db.execute(
+            """INSERT INTO conversation_summaries
+               (session_id, summary_version, summary_text,
+                compressed_up_to_msg_id, compressed_count,
+                incremental_rounds, safety_pins_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (session_id, next_version, summary_text,
+             compressed_up_to_msg_id, compressed_count,
+             incremental_rounds, pins_json),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def _get_max_message_id(session_id: str) -> int:
+    """获取当前会话的最大 message_id（用于标记压缩截止点）。"""
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT MAX(message_id) FROM messages WHERE session_id = ?",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+        return row[0] or 0
+    finally:
+        await db.close()
+
+
 @router.websocket("/ws/{session_id}")
 async def chat_websocket(ws: WebSocket, session_id: str):
     print(f"[WS] Connecting session={session_id[:8]}...", flush=True)
     await manager.connect(session_id, ws)
     print(f"[WS] Connected session={session_id[:8]}", flush=True)
 
-    # 从数据库加载历史消息
+    # 从数据库加载历史消息 + 压缩摘要
     try:
         conversation_history = await _load_history(session_id)
         print(f"[WS] Loaded {len(conversation_history)} history msgs", flush=True)
     except Exception as e:
         print(f"[WS] _load_history error: {e}", flush=True)
         conversation_history = []
+
+    # 加载已有的压缩摘要元数据（断连恢复用）
+    prior_summary: str | None = None
+    prior_compressed_count: int | None = None
+    incremental_rounds: int = 0
+    try:
+        summary_meta = await _load_latest_summary(session_id)
+        if summary_meta:
+            prior_summary = summary_meta["summary_text"]
+            prior_compressed_count = summary_meta["compressed_count"]
+            incremental_rounds = summary_meta["incremental_rounds"]
+            print(f"[WS] Loaded summary v{incremental_rounds}, "
+                  f"compressed={prior_compressed_count} msgs", flush=True)
+    except Exception as e:
+        print(f"[WS] _load_latest_summary error: {e}", flush=True)
 
     # 尝试从 session_id 获取 user_id（用于 Agent 上下文）
     user_id = session_id  # 默认用 session_id
@@ -163,6 +260,9 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     crisis_holding=crisis_holding,
                     session_id=session_id,
                     multimodal_context=multimodal_context if multimodal_context else None,
+                    prior_summary=prior_summary,
+                    prior_compressed_count=prior_compressed_count,
+                    incremental_rounds=incremental_rounds,
                 )
             except Exception as e:
                 print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)
@@ -171,6 +271,44 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             # 更新内存中的对话历史
             conversation_history.append({"role": "user", "content": user_text})
             conversation_history.append({"role": "assistant", "content": response["text"]})
+
+            # 持久化压缩摘要（如果本轮产生了新摘要）
+            new_summary = response.get("summary")
+            if new_summary and new_summary != prior_summary:
+                try:
+                    max_msg_id = await _get_max_message_id(session_id)
+                    # 计算已压缩的非安全消息条数
+                    from context.compressor import ConversationCompressor
+                    comp = ConversationCompressor()
+                    split_idx = comp._find_split_point(conversation_history, comp.keep_recent)
+                    early = conversation_history[:split_idx]
+                    _, compressible = comp._partition_safety(early)
+                    new_compressed_count = len(compressible)
+
+                    new_incremental = (
+                        incremental_rounds + 1 if prior_summary else 1
+                    )
+                    # 全量重压缩时重置计数
+                    if new_incremental > comp.max_incremental_rounds:
+                        new_incremental = 1
+
+                    safety_pinned, _ = comp._partition_safety(early)
+                    await _save_summary(
+                        session_id=session_id,
+                        summary_text=new_summary,
+                        compressed_up_to_msg_id=max_msg_id,
+                        compressed_count=new_compressed_count,
+                        incremental_rounds=new_incremental,
+                        safety_pins=safety_pinned,
+                    )
+                    # 更新内存中的元数据供下一轮使用
+                    prior_summary = new_summary
+                    prior_compressed_count = new_compressed_count
+                    incremental_rounds = new_incremental
+                    print(f"[WS] Saved summary v{new_incremental}, "
+                          f"compressed={new_compressed_count}", flush=True)
+                except Exception as e:
+                    print(f"[WS] _save_summary error: {e}", flush=True)
 
             # 保存 AI 回复到数据库
             await _save_message(session_id, "assistant", response["text"])

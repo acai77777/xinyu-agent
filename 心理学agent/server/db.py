@@ -128,6 +128,21 @@ async def init_db():
             ON mood_checkins(user_id, created_at)
         """)
 
+        # 对话压缩摘要表
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_summaries (
+                session_id TEXT NOT NULL,
+                summary_version INTEGER NOT NULL,
+                summary_text TEXT NOT NULL,
+                compressed_up_to_msg_id INTEGER NOT NULL,
+                compressed_count INTEGER NOT NULL DEFAULT 0,
+                incremental_rounds INTEGER NOT NULL DEFAULT 0,
+                safety_pins_json TEXT DEFAULT '[]',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (session_id, summary_version)
+            )
+        """)
+
         await db.commit()
 
 

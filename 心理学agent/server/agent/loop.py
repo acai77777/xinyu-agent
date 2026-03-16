@@ -301,30 +301,30 @@ async def run_agent(
     crisis_holding: CrisisHolding | None = None,
     session_id: str | None = None,
     multimodal_context: list[str] | None = None,
+    prior_summary: str | None = None,
+    prior_compressed_count: int | None = None,
+    incremental_rounds: int = 0,
 ) -> dict:
     """
     Agent主循环：
     1. 安全检查（前置，关键词+语义双层）
-    2. 后台异步评估（非侵入式监控）
-    3. LLM推理 + 工具调用循环
-    4. 元认知监视器审核
-    5. 输出安全审核（后置）
-    6. 治疗联盟监测
+    2. 对话压缩（滑动窗口+LLM摘要）
+    3. 后台异步评估（非侵入式监控）
+    4. LLM推理 + 工具调用循环
+    5. 元认知监视器审核
+    6. 输出安全审核（后置）
+    7. 治疗联盟监测
 
-    返回：{"text": str, "emotion": dict|None, "crisis_holding_active": bool}
+    返回：{"text": str, "emotion": dict|None, "crisis_holding_active": bool,
+           "summary": str|None}
     """
     if tools is None:
         tools = TOOLS
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
-    # === 前置安全检查（必须等待）+ 后台评估（不阻塞）===
+    # === 前置安全检查（必须等待）===
     risk = await detect_crisis(user_message)
-
-    # 后台评估异步执行，不阻塞主回复
-    bg_assess_task = asyncio.create_task(
-        _background_assess(user_message, conversation_history)
-    )
 
     # === 危机抱持模式处理 ===
     if crisis_holding is None:
@@ -351,115 +351,116 @@ async def run_agent(
             f"请在回复中温和地建议寻求专业帮助。"
         )
 
-    # 尝试快速获取后台评估（如果已完成则用，否则跳过）
-    bg_assessment, bg_emotion = None, None
-    if bg_assess_task.done():
-        try:
-            bg_assessment, bg_emotion = bg_assess_task.result()
-        except Exception:
-            pass
-
-    if bg_assessment:
-        context_hints.append(f"[后台评估·仅供参考] {bg_assessment}")
-        context_hints.append(
-            "[重要] 以上评估仅作为你的内部参考。不要在对话中直接提及评估结果"
-            "或认知扭曲的专业名称。优先共情倾听，只有在用户准备好时才温和地引导探索。"
-        )
+    bg_emotion = None
 
     alliance_warning = _check_alliance(user_message, conversation_history)
     if alliance_warning:
         context_hints.append(f"[关系提示] {alliance_warning}")
 
-    # === 叙事记忆：注入用户情感弧线上下文 ===
+    # === 结构化笔记：统一加载上下文（画像/叙事/关系/策略）===
+    _notes_profile = ""
+    _notes_issue = ""
     try:
-        from memory.narrative import NarrativeMemory
-        nm = NarrativeMemory()
-        narrative_ctx = nm.get_narrative_context(user_id)
-        if narrative_ctx:
-            context_hints.append(narrative_ctx)
-    except Exception:
-        pass
+        from context.session_notes import SessionNotes, load_or_create
+        turn_count = sum(1 for m in conversation_history if m["role"] == "user")
+        notes = await load_or_create(session_id or "", user_id, turn_count)
+        _notes_profile = notes.user_profile_summary
+        _notes_issue = notes.presenting_issue
 
-    # === 用户画像 + 关系状态机 ===
-    try:
-        from memory.user_profile import ProfileStore, RelationshipStateMachine
-        ps = ProfileStore()
-        profile = ps.load(user_id)
-        if profile:
-            profile_parts = []
-            if profile.display_name:
-                profile_parts.append(f"称呼：{profile.display_name}")
-            if profile.signature_strengths:
-                profile_parts.append(f"性格优势：{'、'.join(profile.signature_strengths)}")
-            if profile.common_distortions:
-                profile_parts.append(f"常见认知扭曲：{'、'.join(profile.common_distortions)}")
-            if profile.preferred_interventions:
-                profile_parts.append(f"偏好干预方式：{'、'.join(profile.preferred_interventions)}")
-            if profile.current_phase and profile.current_phase != "unknown":
-                phase_cn = {
-                    "crisis": "危机期", "distressed": "困扰期",
-                    "recovering": "恢复期", "growing": "成长期",
-                    "flourishing": "蓬勃期",
-                }
-                profile_parts.append(f"当前阶段：{phase_cn.get(profile.current_phase, profile.current_phase)}")
-            if profile_parts:
-                context_hints.append(f"[用户画像] {'；'.join(profile_parts)}")
-
-        rsm = RelationshipStateMachine()
-        relationship_guidance = rsm.get_guidance(user_id)
-        if relationship_guidance:
-            context_hints.append(f"[关系状态] {relationship_guidance}")
-        rsm.update(user_id, user_message)
-    except Exception:
-        pass
-
-    # === 知识库语义检索：从心理学书籍中检索相关内容 ===
-    try:
-        from knowledge.knowledge_base import search_books_semantic
-        book_results = search_books_semantic(user_message, max_results=3)
-        if book_results:
-            kb_lines = []
-            for item in book_results:
-                if item.get("similarity", 0) > 0.3:
-                    source = f"{item.get('book', '')}·{item.get('chapter', '')}"
-                    kb_lines.append(f"【{source}】{item['content'][:300]}")
-            if kb_lines:
-                context_hints.append(
-                    "[知识库参考] 以下是与用户话题相关的心理学知识，仅供你内部参考，"
-                    "不要直接照搬或引用书名，而是自然地融入对话中：\n"
-                    + "\n".join(kb_lines)
-                )
-    except Exception:
-        pass
-
-    # === 会话策略注入（非危机模式下）===
-    if session_id and not crisis_holding.active:
+        if notes.is_warm() and not crisis_holding.active:
+            # 暖启动：紧凑模式（<500 token）
+            compact = notes.to_compact_prompt()
+            if compact:
+                context_hints.append(compact)
+            logger.debug("[Notes] Warm mode, compact prompt %d chars", len(compact))
+        else:
+            # 冷启动：回退到全量注入
+            await _inject_full_context(
+                context_hints, user_message, user_id, session_id, crisis_holding,
+            )
+    except Exception as e:
+        logger.warning(f"[Notes] Failed, fallback to full context: {e}")
         try:
-            from agent.session_strategy import load_session_strategy
-            strategy = await load_session_strategy(session_id)
-            if strategy:
-                goals_str = "→".join(strategy.stage_goals) if strategy.stage_goals else "待定"
-                techniques_str = "、".join(strategy.techniques) if strategy.techniques else "待定"
-                cautions_str = "、".join(strategy.cautions) if strategy.cautions else "无"
-                context_hints.append(
-                    f"[会话策略·第{strategy.version}版]\n"
-                    f"核心议题：{strategy.presenting_issue}\n"
-                    f"阶段目标：{goals_str}\n"
-                    f"主要方法：{strategy.primary_approach}\n"
-                    f"推荐技术：{techniques_str}\n"
-                    f"注意事项：{cautions_str}\n"
-                    f"[重要] 以上策略是你的内部工作计划，不要直接告诉用户。按此策略自然引导对话。"
-                )
+            await _inject_full_context(
+                context_hints, user_message, user_id, session_id, crisis_holding,
+            )
         except Exception:
             pass
+
+    # === 子 Agent 编排（非阻塞，后台并行）===
+    # 放在 notes 加载之后，以便传入真实的画像和议题
+    sub_agent_task: asyncio.Task | None = None
+    if not crisis_holding.active:
+        try:
+            from context.sub_agents import SubAgentOrchestrator
+            orchestrator = SubAgentOrchestrator()
+            sub_agent_task = asyncio.create_task(
+                orchestrator.dispatch(
+                    user_msg=user_message,
+                    session_id=session_id or "",
+                    recent_messages=conversation_history[-12:],
+                    user_profile_summary=_notes_profile,
+                    presenting_issue=_notes_issue,
+                )
+            )
+        except Exception as e:
+            logger.warning(f"[SubAgent] Failed to launch: {e}")
+
+    # 关系状态机更新（无论冷暖都要执行，零 LLM 成本）
+    try:
+        from memory.user_profile import RelationshipStateMachine
+        rsm = RelationshipStateMachine()
+        await asyncio.to_thread(rsm.update, user_id, user_message)
+    except Exception:
+        pass
 
     if multimodal_context:
         context_hints.extend(multimodal_context)
 
+    # === 收集子 Agent 结果（编排器内部已含超时降级）===
+    if sub_agent_task is not None:
+        try:
+            sub_results = await sub_agent_task
+            # 分析结果 → 情绪 + 评估注入
+            analysis = sub_results.get("analysis")
+            if isinstance(analysis, dict):
+                bg_emotion = analysis.get("emotion")
+                assessment = analysis.get("assessment", "")
+                if assessment:
+                    context_hints.append(f"[情绪评估] {assessment}")
+            # 知识检索结果注入
+            knowledge = sub_results.get("knowledge")
+            if knowledge:
+                context_hints.append(f"[专业参考] {knowledge}")
+        except Exception as e:
+            logger.warning(f"[SubAgent] Result collection failed: {e}")
+
+    # === 对话压缩（滑动窗口 + LLM 摘要）===
+    new_summary = prior_summary  # 默认保持不变
+    try:
+        from context.compressor import ConversationCompressor
+        compressor = ConversationCompressor()
+        compressed_history, new_summary = await compressor.compress_if_needed(
+            conversation_history, session_id or "",
+            prior_summary=prior_summary,
+            prior_compressed_count=prior_compressed_count,
+            incremental_rounds=incremental_rounds,
+        )
+    except Exception as e:
+        logger.warning(f"[Compressor] Failed, using full history: {e}")
+        compressed_history = conversation_history
+
+    # 摘要注入 system prompt（不构造假消息）
+    if new_summary:
+        context_hints.append(
+            f"[历史对话摘要·仅供内部参考]\n{new_summary}\n"
+            "[注意] 以上是早期对话的压缩摘要。最近几轮原始对话见下方消息。"
+        )
+
     if context_hints:
         context_enriched_prompt += "\n\n" + "\n".join(context_hints)
 
-    messages = conversation_history + [{"role": "user", "content": user_message}]
+    messages = compressed_history + [{"role": "user", "content": user_message}]
 
     # 危机抱持模式下禁用工具
     active_tools = [] if crisis_holding.active else tools
@@ -489,10 +490,13 @@ async def run_agent(
             if crisis_holding.active:
                 crisis_holding.advance()
 
-            # 尝试获取后台评估的 emotion（如果已完成）
-            if bg_emotion is None and bg_assess_task.done():
+            # 尝试从子 Agent 获取 emotion（如果之前未获取到）
+            if bg_emotion is None and sub_agent_task is not None and sub_agent_task.done():
                 try:
-                    _, bg_emotion = bg_assess_task.result()
+                    sub_results = sub_agent_task.result()
+                    analysis = sub_results.get("analysis")
+                    if isinstance(analysis, dict):
+                        bg_emotion = analysis.get("emotion")
                 except Exception:
                     pass
 
@@ -500,6 +504,7 @@ async def run_agent(
                 "text": final_text,
                 "emotion": bg_emotion,
                 "crisis_holding_active": crisis_holding.active,
+                "summary": new_summary,
             }
 
         # 处理工具调用
@@ -543,8 +548,8 @@ async def _background_assess(
     conversation_history: list | None = None,
 ) -> tuple[str | None, dict | None]:
     """
-    非侵入式后台评估——用轻量模型做情绪/认知模式扫描。
-    结果注入system prompt作为LLM的"内部参考"。
+    [已废弃] 由 SubAgentOrchestrator._run_analysis_agent() 替代。
+    保留函数体以防外部引用，新代码请勿调用。
     """
     context_parts = []
     if conversation_history:
@@ -770,3 +775,108 @@ def _parse_json_safe(text: str) -> dict:
         return json.loads(raw)
     except (json.JSONDecodeError, IndexError):
         return {"safe": True}
+
+
+# ============================================================
+# 全量上下文注入（冷启动 / SessionNotes 加载失败时的回退路径）
+# ============================================================
+
+async def _inject_full_context(
+    context_hints: list[str],
+    user_message: str,
+    user_id: str,
+    session_id: str | None,
+    crisis_holding: CrisisHolding | None,
+) -> None:
+    """
+    原有6层上下文注入逻辑（叙事记忆、用户画像、关系状态、知识库、会话策略）。
+    冷启动时或 SessionNotes 加载失败时使用。
+    同步 DB 调用已用 asyncio.to_thread 包装。
+    """
+
+    # === 叙事记忆 ===
+    try:
+        from memory.narrative import NarrativeMemory
+        nm = NarrativeMemory()
+        narrative_ctx = await asyncio.to_thread(nm.get_narrative_context, user_id)
+        if narrative_ctx:
+            context_hints.append(narrative_ctx)
+    except Exception:
+        pass
+
+    # === 用户画像 ===
+    try:
+        from memory.user_profile import ProfileStore
+        ps = ProfileStore()
+        profile = await asyncio.to_thread(ps.load, user_id)
+        if profile:
+            profile_parts = []
+            if profile.display_name:
+                profile_parts.append(f"称呼：{profile.display_name}")
+            if profile.signature_strengths:
+                profile_parts.append(f"性格优势：{'、'.join(profile.signature_strengths)}")
+            if profile.common_distortions:
+                profile_parts.append(f"常见认知扭曲：{'、'.join(profile.common_distortions)}")
+            if profile.preferred_interventions:
+                profile_parts.append(f"偏好干预方式：{'、'.join(profile.preferred_interventions)}")
+            if profile.current_phase and profile.current_phase != "unknown":
+                phase_cn = {
+                    "crisis": "危机期", "distressed": "困扰期",
+                    "recovering": "恢复期", "growing": "成长期",
+                    "flourishing": "蓬勃期",
+                }
+                profile_parts.append(f"当前阶段：{phase_cn.get(profile.current_phase, profile.current_phase)}")
+            if profile_parts:
+                context_hints.append(f"[用户画像] {'；'.join(profile_parts)}")
+    except Exception:
+        pass
+
+    # === 关系状态 ===
+    try:
+        from memory.user_profile import RelationshipStateMachine
+        rsm = RelationshipStateMachine()
+        relationship_guidance = await asyncio.to_thread(rsm.get_guidance, user_id)
+        if relationship_guidance:
+            context_hints.append(f"[关系状态] {relationship_guidance}")
+    except Exception:
+        pass
+
+    # === 知识库语义检索 ===
+    try:
+        from knowledge.knowledge_base import search_books_semantic
+        book_results = await asyncio.to_thread(search_books_semantic, user_message, 3)
+        if book_results:
+            kb_lines = []
+            for item in book_results:
+                if item.get("similarity", 0) > 0.3:
+                    source = f"{item.get('book', '')}·{item.get('chapter', '')}"
+                    kb_lines.append(f"【{source}】{item['content'][:300]}")
+            if kb_lines:
+                context_hints.append(
+                    "[知识库参考] 以下是与用户话题相关的心理学知识，仅供你内部参考，"
+                    "不要直接照搬或引用书名，而是自然地融入对话中：\n"
+                    + "\n".join(kb_lines)
+                )
+    except Exception:
+        pass
+
+    # === 会话策略（非危机模式下）===
+    if session_id and (crisis_holding is None or not crisis_holding.active):
+        try:
+            from agent.session_strategy import load_session_strategy
+            strategy = await load_session_strategy(session_id)
+            if strategy:
+                goals_str = "→".join(strategy.stage_goals) if strategy.stage_goals else "待定"
+                techniques_str = "、".join(strategy.techniques) if strategy.techniques else "待定"
+                cautions_str = "、".join(strategy.cautions) if strategy.cautions else "无"
+                context_hints.append(
+                    f"[会话策略·第{strategy.version}版]\n"
+                    f"核心议题：{strategy.presenting_issue}\n"
+                    f"阶段目标：{goals_str}\n"
+                    f"主要方法：{strategy.primary_approach}\n"
+                    f"推荐技术：{techniques_str}\n"
+                    f"注意事项：{cautions_str}\n"
+                    f"[重要] 以上策略是你的内部工作计划，不要直接告诉用户。按此策略自然引导对话。"
+                )
+        except Exception:
+            pass

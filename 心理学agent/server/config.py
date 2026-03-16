@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     # 模型配置
-    main_model: str = "anthropic/claude-sonnet-4"
+    main_model: str = "google/gemini-3.1-flash-lite-preview"
     light_model: str = "deepseek/deepseek-v3.2"
     deepseek_model: str = "deepseek-chat"
     max_tokens: int = 2048
@@ -53,6 +53,11 @@ class Settings(BaseSettings):
 
     # 对话限制
     max_conversation_turns: int = 50
+
+    # 对话压缩
+    compress_threshold: int = 10        # 超过此轮数触发压缩
+    compress_keep_recent: int = 6       # 保留最近 N 轮原始对话
+    sub_agent_timeout: int = 5          # 子 Agent 最大等待秒数
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
