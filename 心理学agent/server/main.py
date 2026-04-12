@@ -1,8 +1,11 @@
 """
 FastAPI 入口——HTTP REST + WebSocket 双协议
 """
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from config import settings
@@ -45,6 +48,11 @@ app.include_router(mood_router, prefix="/api/mood", tags=["心情打卡"])
 
 # WebSocket 路由（聊天核心）
 app.include_router(chat_router)
+
+# 静态文件——上传的图片/音频通过 /uploads/ 路径访问
+_upload_dir = settings.upload_dir or os.path.join(os.path.dirname(__file__), "data", "uploads")
+os.makedirs(_upload_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_upload_dir), name="uploads")
 
 
 @app.get("/health")

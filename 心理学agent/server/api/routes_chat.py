@@ -156,6 +156,25 @@ async def _get_max_message_id(session_id: str) -> int:
         await db.close()
 
 
+async def _resolve_user_id(session_id: str) -> str:
+    """从数据库查询 session 对应的 user_id，查不到则返回 session_id。"""
+    try:
+        db = await get_db()
+        try:
+            cursor = await db.execute(
+                "SELECT user_id FROM conversations WHERE session_id = ?",
+                (session_id,),
+            )
+            row = await cursor.fetchone()
+            if row:
+                return row[0]
+        finally:
+            await db.close()
+    except Exception as e:
+        print(f"[WS] DB user_id error: {e}", flush=True)
+    return session_id
+
+
 @router.websocket("/ws/{session_id}")
 async def chat_websocket(ws: WebSocket, session_id: str):
     print(f"[WS] Connecting session={session_id[:8]}...", flush=True)
@@ -185,22 +204,8 @@ async def chat_websocket(ws: WebSocket, session_id: str):
     except Exception as e:
         print(f"[WS] _load_latest_summary error: {e}", flush=True)
 
-    # 尝试从 session_id 获取 user_id（用于 Agent 上下文）
-    user_id = session_id  # 默认用 session_id
-    try:
-        db = await get_db()
-        try:
-            cursor = await db.execute(
-                "SELECT user_id FROM conversations WHERE session_id = ?",
-                (session_id,),
-            )
-            row = await cursor.fetchone()
-            if row:
-                user_id = row[0]
-        finally:
-            await db.close()
-    except Exception as e:
-        print(f"[WS] DB user_id error: {e}", flush=True)
+    # 获取 user_id
+    user_id = await _resolve_user_id(session_id)
 
     print(f"[WS] user_id={user_id[:8]}..., waiting for messages", flush=True)
     crisis_holding = CrisisHolding.load(user_id)
@@ -266,7 +271,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 )
             except Exception as e:
                 print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)
-                response = {"text": f"抱歉，处理消息时遇到了问题，请稍后重试。", "emotion": None}
+                response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "emotion": None}
 
             # 更新内存中的对话历史
             conversation_history.append({"role": "user", "content": user_text})
