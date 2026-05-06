@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme.css">
+<style>
+.content { position: absolute; top: 200px; left: 80px; right: 80px; bottom: 160px; }
+.label { font-size: 24px; color: var(--milk-tea); letter-spacing: 0.2em; margin-bottom: 16px; font-weight: 500; }
+.title { font-family: 'Noto Serif SC', serif; font-size: 64px; font-weight: 900; color: var(--deep-brown); line-height: 1.2; margin-bottom: 56px; }
+.dim-list { display: flex; flex-direction: column; gap: 24px; }
+.dim-item { display: flex; align-items: center; gap: 32px; padding: 28px 32px; background: white; border: 1px solid var(--warm-beige); border-radius: 16px; }
+.dim-num { font-family: 'Noto Serif SC', serif; font-size: 48px; font-weight: 700; color: var(--milk-tea); width: 80px; flex-shrink: 0; }
+.dim-info { flex: 1; }
+.dim-name { font-family: 'Noto Serif SC', serif; font-size: 32px; font-weight: 700; color: var(--deep-brown); margin-bottom: 4px; }
+.dim-desc { font-size: 22px; color: var(--warm-gray); }
+.dim-score { font-family: 'Noto Serif SC', serif; font-size: 44px; font-weight: 700; color: var(--caramel); }
+.dim-score .unit { font-size: 24px; font-weight: 400; color: var(--warm-gray); }
+</style></head>
+<body>
+  <div class="bg-circle-tr"></div>
+  <div class="brand-tag">XINYU · 心语</div>
+  <div class="page-num">02 / 07</div>
+  <div class="content">
+    <div class="label">— 四 大 测 评 维 度</div>
+    <div class="title">从这四个角度<br>看它够不够"专业"</div>
+    <div class="dim-list">
+      <div class="dim-item">
+        <div class="dim-num">01</div>
+        <div class="dim-info"><div class="dim-name">情绪识别准确率</div><div class="dim-desc">19 类精细情绪测试</div></div>
+        <div class="dim-score">90<span class="unit">%</span></div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-num">02</div>
+        <div class="dim-info"><div class="dim-name">认知扭曲检测</div><div class="dim-desc">15 种 CBT 思维模式</div></div>
+        <div class="dim-score">100<span class="unit">%</span></div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-num">03</div>
+        <div class="dim-info"><div class="dim-name">危机检测安全</div><div class="dim-desc">致命漏检 0 + 红队 7/7</div></div>
+        <div class="dim-score">91.4<span class="unit">%</span></div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-num">04</div>
+        <div class="dim-info"><div class="dim-name">对话整体质量</div><div class="dim-desc">五维度 LLM 评分</div></div>
+        <div class="dim-score">8.4<span class="unit">/10</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-marker">总览</div>
+</body></html>

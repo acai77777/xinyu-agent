@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme.css">
+<style>
+.content { position: absolute; top: 200px; left: 80px; right: 80px; bottom: 160px; }
+.label { font-size: 24px; color: var(--milk-tea); letter-spacing: 0.2em; margin-bottom: 16px; font-weight: 500; }
+.title { font-family: 'Noto Serif SC', serif; font-size: 60px; font-weight: 900; color: var(--deep-brown); line-height: 1.2; margin-bottom: 16px; }
+.subtitle { font-size: 26px; color: var(--warm-gray); margin-bottom: 48px; }
+.score-card { padding: 48px 40px; background: white; border-radius: 20px; border: 1px solid var(--warm-beige); margin-bottom: 32px; text-align: center; }
+.big-score { font-family: 'Noto Serif SC', serif; font-size: 120px; font-weight: 700; color: var(--caramel); line-height: 1; margin-bottom: 12px; }
+.score-label { font-size: 28px; color: var(--warm-gray); letter-spacing: 0.1em; }
+.case-list { display: flex; flex-direction: column; gap: 16px; }
+.case-row { display: flex; align-items: center; gap: 20px; padding: 22px 28px; background: white; border: 1px solid var(--warm-beige); border-radius: 12px; }
+.case-mark { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 700; color: white; font-size: 20px; }
+.case-mark.correct { background: var(--soft-green); }
+.case-mark.wrong { background: var(--tea-rose); }
+.case-text { flex: 1; font-size: 24px; color: var(--deep-brown); }
+.case-text .quote { color: var(--caramel); font-style: italic; }
+.case-result { font-size: 22px; color: var(--warm-gray); }
+</style></head>
+<body>
+  <div class="bg-circle-tr"></div>
+  <div class="brand-tag">XINYU · 心语</div>
+  <div class="page-num">03 / 07</div>
+  <div class="content">
+    <div class="label">— 测 评 一 · 情 绪 识 别</div>
+    <div class="title">19 类细分情绪测试</div>
+    <div class="subtitle">从真实咨询对话中抽取 20 条样本</div>
+    <div class="score-card">
+      <div class="big-score">18<span style="font-size:48px;color:var(--warm-gray);">/20</span></div>
+      <div class="score-label">正 确 识 别</div>
+    </div>
+    <div class="case-list">
+      <div class="case-row">
+        <div class="case-mark correct">✓</div>
+        <div class="case-text"><span class="quote">"心慌得睡不着觉"</span></div>
+        <div class="case-result">→ 焦虑</div>
+      </div>
+      <div class="case-row">
+        <div class="case-mark correct">✓</div>
+        <div class="case-text"><span class="quote">"做什么都提不起兴趣"</span></div>
+        <div class="case-result">→ 抑郁</div>
+      </div>
+      <div class="case-row">
+        <div class="case-mark wrong">!</div>
+        <div class="case-text"><span class="quote">"我没什么感觉，就是平静"</span></div>
+        <div class="case-result">→ 误判平静</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-marker">情绪麻木较难分辨</div>
+</body></html>

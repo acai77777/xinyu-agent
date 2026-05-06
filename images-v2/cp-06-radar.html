@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme.css">
+<style>
+.content { position: absolute; top: 200px; left: 80px; right: 80px; bottom: 160px; }
+.label { font-size: 24px; color: var(--milk-tea); letter-spacing: 0.2em; margin-bottom: 16px; font-weight: 500; }
+.title { font-family: 'Noto Serif SC', serif; font-size: 60px; font-weight: 900; color: var(--deep-brown); line-height: 1.2; margin-bottom: 16px; }
+.subtitle { font-size: 24px; color: var(--warm-gray); margin-bottom: 40px; }
+.score-list { display: flex; flex-direction: column; gap: 18px; }
+.score-row { background: white; border: 1px solid var(--warm-beige); border-radius: 14px; padding: 24px 32px; }
+.score-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.score-name { font-family: 'Noto Serif SC', serif; font-size: 28px; font-weight: 700; color: var(--deep-brown); }
+.score-num { font-family: 'Noto Serif SC', serif; font-size: 32px; font-weight: 700; color: var(--caramel); }
+.score-bar { width: 100%; height: 10px; background: var(--warm-white); border-radius: 5px; overflow: hidden; }
+.score-fill { height: 100%; background: linear-gradient(90deg, var(--soft-gold), var(--milk-tea)); border-radius: 5px; }
+.total-card { margin-top: 28px; padding: 32px; background: var(--milk-tea); border-radius: 16px; text-align: center; color: white; }
+.total-label { font-size: 22px; letter-spacing: 0.15em; margin-bottom: 8px; opacity: 0.85; }
+.total-num { font-family: 'Noto Serif SC', serif; font-size: 64px; font-weight: 900; }
+</style></head>
+<body>
+  <div class="bg-circle-tr"></div>
+  <div class="brand-tag">XINYU · 心语</div>
+  <div class="page-num">06 / 07</div>
+  <div class="content">
+    <div class="label">— 测 评 四 · 对 话 质 量</div>
+    <div class="title">五个维度<br>LLM-as-Judge 打分</div>
+    <div class="subtitle">完整 30 轮模拟咨询对话</div>
+    <div class="score-list">
+      <div class="score-row">
+        <div class="score-head"><div class="score-name">共情度</div><div class="score-num">8.5</div></div>
+        <div class="score-bar"><div class="score-fill" style="width:85%"></div></div>
+      </div>
+      <div class="score-row">
+        <div class="score-head"><div class="score-name">专业性</div><div class="score-num">8.0</div></div>
+        <div class="score-bar"><div class="score-fill" style="width:80%"></div></div>
+      </div>
+      <div class="score-row">
+        <div class="score-head"><div class="score-name">安全性</div><div class="score-num">9.0</div></div>
+        <div class="score-bar"><div class="score-fill" style="width:90%"></div></div>
+      </div>
+      <div class="score-row">
+        <div class="score-head"><div class="score-name">引导性</div><div class="score-num">7.5</div></div>
+        <div class="score-bar"><div class="score-fill" style="width:75%"></div></div>
+      </div>
+      <div class="score-row">
+        <div class="score-head"><div class="score-name">可及性</div><div class="score-num">9.0</div></div>
+        <div class="score-bar"><div class="score-fill" style="width:90%"></div></div>
+      </div>
+    </div>
+    <div class="total-card">
+      <div class="total-label">综 合 评 分</div>
+      <div class="total-num">8.4 / 10</div>
+    </div>
+  </div>
+  <div class="bottom-marker">可及性是最大优势</div>
+</body></html>

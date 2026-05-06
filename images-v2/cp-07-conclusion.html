@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme.css">
+<style>
+.content { position: absolute; top: 50%; left: 80px; right: 80px; transform: translateY(-50%); }
+.label { font-size: 24px; color: var(--milk-tea); letter-spacing: 0.3em; margin-bottom: 32px; font-weight: 500; text-align: center; }
+.verdict { font-family: 'Noto Serif SC', serif; font-size: 64px; font-weight: 900; color: var(--deep-brown); text-align: center; line-height: 1.4; margin-bottom: 16px; }
+.verdict .highlight { color: var(--caramel); }
+.divider { width: 60px; height: 2px; background: var(--milk-tea); margin: 24px auto 40px; }
+.recommend-list { padding: 36px 40px; background: white; border: 1px solid var(--warm-beige); border-radius: 16px; margin-bottom: 24px; }
+.rec-title { font-family: 'Noto Serif SC', serif; font-size: 30px; font-weight: 700; color: var(--deep-brown); margin-bottom: 24px; }
+.rec-item { display: flex; align-items: flex-start; gap: 14px; font-size: 24px; color: var(--warm-gray); line-height: 1.6; margin-bottom: 14px; }
+.rec-item:last-child { margin-bottom: 0; }
+.rec-mark { color: var(--soft-green); font-weight: 700; flex-shrink: 0; }
+.warn-box { padding: 28px 32px; background: var(--tea-rose-bg); border-radius: 16px; border-left: 4px solid var(--tea-rose); }
+.warn-title { font-size: 22px; color: var(--tea-rose); font-weight: 600; letter-spacing: 0.1em; margin-bottom: 10px; }
+.warn-text { font-size: 22px; color: var(--deep-brown); line-height: 1.6; }
+</style></head>
+<body>
+  <div class="bg-circle-tr"></div><div class="bg-circle-bl"></div>
+  <div class="brand-tag">XINYU · 心语</div>
+  <div class="page-num">07 / 07</div>
+  <div class="content">
+    <div class="label">最 终 总 评</div>
+    <div class="verdict">作为<span class="highlight">免费开源项目</span><br>表现远超预期</div>
+    <div class="divider"></div>
+    <div class="recommend-list">
+      <div class="rec-title">推荐给这些人</div>
+      <div class="rec-item"><span class="rec-mark">✓</span><span>正在经历轻度到中度情绪困扰</span></div>
+      <div class="rec-item"><span class="rec-mark">✓</span><span>对心理学有兴趣，想了解 CBT</span></div>
+      <div class="rec-item"><span class="rec-mark">✓</span><span>想找一个 24 小时在线的倾诉对象</span></div>
+      <div class="rec-item"><span class="rec-mark">✓</span><span>预算有限，负担不起专业咨询</span></div>
+    </div>
+    <div class="warn-box">
+      <div class="warn-title">温 馨 提 醒</div>
+      <div class="warn-text">不能替代专业心理咨询<br>严重困扰请寻求线下帮助</div>
+    </div>
+  </div>
+</body></html>
