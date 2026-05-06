@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心语 系统架构图</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --card-bg: #1a1d28;
+    --border: #2a2d3a;
+    --text: #e0e0e0;
+    --text-dim: #888;
+    --accent-coral: #d4856b;
+    --accent-blue: #6b9fd4;
+    --accent-green: #6ba5a0;
+    --accent-amber: #e8b86d;
+    --accent-purple: #9b7ec4;
+    --accent-pink: #d46b8e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 800px;
+    background: var(--bg);
+    font-family: 'Noto Sans SC', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 50px;
+    overflow: hidden;
+  }
+
+  .title-area {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  /* Layer labels */
+  .arch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    max-width: 1080px;
+  }
+
+  .layer-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: -8px;
+    margin-top: 2px;
+    padding-left: 4px;
+  }
+
+  .layer {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    min-width: 150px;
+    flex: 1;
+    max-width: 220px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 3px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .card.client::before  { background: var(--accent-amber); }
+  .card.api::before      { background: var(--accent-blue); }
+  .card.agent::before    { background: var(--accent-coral); }
+  .card.safety::before   { background: var(--accent-pink); }
+  .card.assess::before   { background: var(--accent-purple); }
+  .card.interv::before   { background: var(--accent-green); }
+  .card.memory::before   { background: var(--accent-blue); }
+  .card.context::before  { background: var(--accent-purple); }
+  .card.data::before     { background: var(--accent-amber); }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .card-items {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+  }
+
+  .card-items span {
+    display: block;
+  }
+
+  /* Arrows between layers */
+  .arrow-row {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0;
+  }
+
+  .arrow {
+    color: var(--text-dim);
+    font-size: 18px;
+    letter-spacing: 3px;
+  }
+
+  /* Data layer */
+  .data-badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    padding: 12px 20px;
+    background: var(--card-bg);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+  }
+
+  .badge {
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge.sqlite  { background: rgba(232,184,109,0.12); color: var(--accent-amber); }
+  .badge.chroma  { background: rgba(107,165,160,0.12); color: var(--accent-green); }
+  .badge.llm     { background: rgba(107,159,212,0.12); color: var(--accent-blue); }
+  .badge.tts     { background: rgba(212,107,142,0.12); color: var(--accent-pink); }
+</style>
+</head>
+<body>
+  <div class="title-area">
+    <div class="title">心语 XinYu 系统架构</div>
+    <div class="subtitle">FastAPI · WebSocket · LLM Agent · ChromaDB</div>
+  </div>
+
+  <div class="arch-container">
+    <div class="layer-label">客户端层</div>
+    <div class="layer">
+      <div class="card client">
+        <div class="card-title">iOS / Android</div>
+        <div class="card-items"><span>Expo React Native</span><span>Expo Router</span></div>
+      </div>
+      <div class="card client">
+        <div class="card-title">Web</div>
+        <div class="card-items"><span>React Native Web</span><span>响应式布局</span></div>
+      </div>
+    </div>
+
+    <div class="arrow-row"><span class="arrow">↕ WebSocket + REST API</span></div>
+    <div class="layer-label">API 网关层</div>
+    <div class="layer">
+      <div class="card api">
+        <div class="card-title">REST Routes</div>
+        <div class="card-items"><span>认证 JWT</span><span>对话 CRUD</span><span>心情打卡</span><span>文件上传</span></div>
+      </div>
+      <div class="card api">
+        <div class="card-title">WebSocket</div>
+        <div class="card-items"><span>实时对话流</span><span>工具调用中间态</span><span>自动重连</span></div>
+      </div>
+    </div>
+
+    <div class="arrow-row"><span class="arrow">↓ Agent 编排</span></div>
+    <div class="layer-label">核心 Agent 层</div>
+    <div class="layer">
+      <div class="card agent">
+        <div class="card-title">Agent 循环</div>
+        <div class="card-items"><span>8 个工具函数</span><span>递归工具调用</span><span>会话策略生成</span><span>元认知监控</span></div>
+      </div>
+      <div class="card safety">
+        <div class="card-title">安全防护</div>
+        <div class="card-items"><span>两阶段危机检测</span><span>四阶段抱持干预</span><span>输出内容审核</span></div>
+      </div>
+    </div>
+
+    <div class="arrow-row"><span class="arrow">↓ 功能模块</span></div>
+    <div class="layer-label">功能模块层</div>
+    <div class="layer">
+      <div class="card assess">
+        <div class="card-title">评估引擎</div>
+        <div class="card-items"><span>19 类情绪识别</span><span>15 种认知扭曲</span><span>标准化量表</span></div>
+      </div>
+      <div class="card interv">
+        <div class="card-title">干预工具</div>
+        <div class="card-items"><span>CBT 认知重构</span><span>苏格拉底式对话</span><span>积极心理学练习</span></div>
+      </div>
+      <div class="card memory">
+        <div class="card-title">记忆系统</div>
+        <div class="card-items"><span>语义记忆 ChromaDB</span><span>叙事弧线追踪</span><span>用户画像建模</span></div>
+      </div>
+      <div class="card context">
+        <div class="card-title">上下文管理</div>
+        <div class="card-items"><span>对话压缩 -74%</span><span>结构化笔记</span><span>子 Agent 编排</span></div>
+      </div>
+    </div>
+
+    <div class="arrow-row"><span class="arrow">↓ 数据持久化</span></div>
+    <div class="layer-label">数据 & 模型层</div>
+    <div class="data-badges">
+      <span class="badge sqlite">SQLite · 10 表</span>
+      <span class="badge chroma">ChromaDB · 向量</span>
+      <span class="badge llm">Gemini Flash · OpenRouter</span>
+      <span class="badge tts">DeepSeek V3.2</span>
+      <span class="badge sqlite">OpenAI TTS</span>
+      <span class="badge chroma">Docker Compose</span>
+    </div>
+  </div>
+</body>
+</html>
