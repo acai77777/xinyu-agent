@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心语 - 情感支持 Agent 原型</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+/* ========== CSS Variables - Apple-inspired warm palette ========== */
+:root {
+  --bg-body: #F0EDE8;
+  --bg-phone: #FAFAF8;
+  --bg-card: #FFFFFF;
+  --bg-input: #F2F0ED;
+  --bg-bubble-user: #3A7CA5;
+  --bg-bubble-ai: #F2F0ED;
+  --bg-nav: rgba(250, 250, 248, 0.85);
+  --bg-tab: rgba(250, 250, 248, 0.92);
+  --color-primary: #3A7CA5;
+  --color-primary-light: #E8F2F8;
+  --color-accent: #8B9DC3;
+  --color-warm: #C4A882;
+  --color-text: #1D1D1F;
+  --color-text-secondary: #86868B;
+  --color-text-tertiary: #AEAEB2;
+  --color-border: #E5E5EA;
+  --color-success: #6BBF8A;
+  --color-warning: #F5A623;
+  --color-danger: #E57373;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+  --font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========== Reset & Global ========== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-family);
+  background: var(--bg-body);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== Phone Container ========== */
+.phone-frame {
+  width: 390px;
+  height: 844px;
+  background: var(--bg-phone);
+  border-radius: 44px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05);
+}
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ========== Status Bar (iOS style) ========== */
+.status-bar {
+  height: 54px;
+  padding: 14px 28px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.status-bar-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ========== Navigation Bar ========== */
+.nav-bar {
+  height: 52px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-nav);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 0.5px solid var(--color-border);
+  flex-shrink: 0;
+  z-index: 10;
+}
+.nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+.nav-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.nav-btn:hover { background: var(--color-primary-light); }
+
+/* ========== Tab Bar ========== */
+.tab-bar {
+  height: 82px;
+  padding: 6px 0 28px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: var(--bg-tab);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 0.5px solid var(--color-border);
+  flex-shrink: 0;
+}
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 16px;
+  transition: var(--transition);
+}
+.tab-item svg { width: 24px; height: 24px; }
+.tab-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+.tab-item.active .tab-label { color: var(--color-primary); }
+.tab-item.active svg { color: var(--color-primary); }
+
+/* ========== Scrollable Content ========== */
+.page-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.page-content::-webkit-scrollbar { display: none; }
+
+/* ========== Common Components ========== */
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition);
+}
+.card:hover { box-shadow: var(--shadow-md); }
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ========== Animations ========== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.fade-in { animation: fadeIn 0.3s ease-out; }
+.slide-up { animation: slideUp 0.4s ease-out; }
+</style>
+<style>
+/* ========== Home Page ========== */
+.home-header {
+  padding: 20px 20px 0;
+}
+.greeting { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+.greeting-sub { font-size: 15px; color: var(--color-text-secondary); margin-top: 4px; }
+
+.mood-card {
+  margin: 16px 20px;
+  background: linear-gradient(135deg, #E8F2F8 0%, #F0E8F5 100%);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  border: none;
+  box-shadow: none;
+}
+.mood-card-title { font-size: 13px; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 12px; }
+.mood-options { display: flex; gap: 10px; flex-wrap: wrap; }
+.mood-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1.5px solid var(--color-border);
+  background: var(--bg-card);
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mood-btn:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+.mood-btn.selected { border-color: var(--color-primary); background: var(--color-primary-light); color: var(--color-primary); }
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  padding: 16px 20px 10px;
+  letter-spacing: -0.3px;
+}
+
+.session-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 10px; }
+.session-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.session-avatar {
+  width: 48px; height: 48px;
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.session-info { flex: 1; min-width: 0; }
+.session-name { font-size: 16px; font-weight: 500; }
+.session-preview {
+  font-size: 13px; color: var(--color-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.session-meta { text-align: right; flex-shrink: 0; }
+.session-time { font-size: 12px; color: var(--color-text-tertiary); }
+.session-badge {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: 4px;
+  margin-left: auto;
+}
+
+.fab {
+  position: absolute;
+  bottom: 96px;
+  right: 24px;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(58,124,165,0.35);
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+  z-index: 5;
+}
+.fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(58,124,165,0.45); }
+
+/* ========== Chat Page ========== */
+.chat-nav {
+  display: flex; align-items: center; gap: 12px;
+}
+.chat-avatar-small {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E8F2F8, #F0E8F5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.chat-nav-info { }
+.chat-nav-name { font-size: 16px; font-weight: 600; }
+.chat-nav-status { font-size: 11px; color: var(--color-success); }
+
+.messages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.messages-area::-webkit-scrollbar { display: none; }
+
+.msg-row {
+  display: flex;
+  gap: 8px;
+  max-width: 82%;
+  animation: fadeIn 0.3s ease-out;
+}
+.msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+.msg-row.ai { align-self: flex-start; }
+
+.msg-avatar-tiny {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.msg-bubble {
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.1px;
+}
+.msg-row.user .msg-bubble {
+  background: var(--bg-bubble-user);
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+.msg-row.ai .msg-bubble {
+  background: var(--bg-bubble-ai);
+  color: var(--color-text);
+  border-bottom-left-radius: 6px;
+}
+.msg-time {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-top: 3px;
+  text-align: right;
+}
+.msg-row.ai .msg-time { text-align: left; }
+
+.thinking-dots {
+  display: flex; gap: 5px; padding: 10px 14px;
+  background: var(--bg-bubble-ai);
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  align-self: flex-start;
+  margin-left: 36px;
+}
+.thinking-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-tertiary);
+  animation: bounce 1s infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.3s; }
+
+.chat-input-bar {
+  padding: 8px 12px 28px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--bg-card);
+  border-top: 0.5px solid var(--color-border);
+}
+.chat-input-actions {
+  display: flex; gap: 2px;
+}
+.chat-action-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.chat-action-btn:hover { background: var(--bg-input); }
+
+.chat-input-wrapper {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 22px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+}
+.chat-input {
+  width: 100%;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-family: var(--font-family);
+  outline: none;
+  resize: none;
+  line-height: 1.4;
+  max-height: 80px;
+  color: var(--color-text);
+}
+.chat-input::placeholder { color: var(--color-text-tertiary); }
+
+.send-btn {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-primary);
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.send-btn:hover { background: #2E6A8F; }
+.send-btn:disabled { background: var(--color-text-tertiary); cursor: default; }
+</style>
+<style>
+/* ========== History Page ========== */
+.history-group-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 16px 20px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.history-list { padding: 0 20px 20px; display: flex; flex-direction: column; gap: 8px; }
+.history-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px; cursor: pointer;
+}
+.history-icon {
+  width: 42px; height: 42px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.history-info { flex: 1; min-width: 0; }
+.history-title { font-size: 15px; font-weight: 500; }
+.history-summary {
+  font-size: 13px; color: var(--color-text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.history-tags { display: flex; gap: 6px; margin-top: 6px; }
+.emotion-tag {
+  padding: 2px 8px; border-radius: 10px;
+  font-size: 11px; font-weight: 500;
+}
+
+/* ========== Profile Page ========== */
+.profile-header {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 24px 20px 16px;
+}
+.profile-avatar {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #E8F2F8 0%, #F0E8F5 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px;
+  box-shadow: var(--shadow-md);
+}
+.profile-name {
+  font-size: 22px; font-weight: 600;
+  margin-top: 12px; letter-spacing: -0.3px;
+}
+.profile-subtitle {
+  font-size: 14px; color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+.trend-card {
+  margin: 12px 20px;
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.trend-title { font-size: 13px; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 14px; }
+.trend-chart {
+  height: 100px;
+  display: flex; align-items: flex-end; gap: 6px;
+  padding: 0 4px;
+}
+.trend-bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.trend-bar {
+  width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  min-height: 8px;
+  transition: var(--transition);
+}
+.trend-label { font-size: 10px; color: var(--color-text-tertiary); }
+
+.settings-section {
+  padding: 8px 20px;
+}
+.settings-group-title {
+  font-size: 13px; font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 12px 0 6px;
+}
+.settings-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+}
+.settings-item-left { display: flex; align-items: center; gap: 12px; }
+.settings-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.settings-label { font-size: 15px; }
+.settings-value { font-size: 14px; color: var(--color-text-secondary); }
+
+/* Toggle switch */
+.toggle {
+  width: 48px; height: 28px;
+  border-radius: 14px;
+  background: var(--color-border);
+  position: relative;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+}
+.toggle.on { background: var(--color-success); }
+.toggle-knob {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 2px; left: 2px;
+  transition: var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+.toggle.on .toggle-knob { left: 22px; }
+
+/* ========== Page Transitions ========== */
+.page-enter { animation: fadeIn 0.25s ease-out; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ========== SVG Icons ========== */
+const Icons = {
+  home: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  chat: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>,
+  history: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  user: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  back: () => <svg width="10" height="18" viewBox="0 0 10 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 1 1 9 9 17"/></svg>,
+  send: () => <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>,
+  plus: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  image: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  mic: () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+  chevron: () => <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 1 7 7 1 13"/></svg>,
+  signal: () => <svg width="16" height="12" viewBox="0 0 16 12"><rect x="0" y="6" width="3" height="6" rx="1" fill="currentColor"/><rect x="4.5" y="4" width="3" height="8" rx="1" fill="currentColor"/><rect x="9" y="2" width="3" height="10" rx="1" fill="currentColor"/><rect x="13.5" y="0" width="3" height="12" rx="1" fill="currentColor" opacity="0.3"/></svg>,
+  wifi: () => <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor"><path d="M8 10.5a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM8 6c2.5 0 4.7 1 6.3 2.7l-1.4 1.4C11.5 8.8 9.8 8 8 8s-3.5.8-4.9 2.1L1.7 8.7C3.3 7 5.5 6 8 6zm0-4.5c3.6 0 6.8 1.5 9.2 3.8l-1.4 1.4C13.6 4.6 10.9 3.5 8 3.5S2.4 4.6.2 6.7L-1.2 5.3C1.2 3 4.4 1.5 8 1.5z" opacity="0.9"/></svg>,
+  battery: () => <svg width="27" height="12" viewBox="0 0 27 12"><rect x="0" y="0" width="24" height="12" rx="2.5" stroke="currentColor" strokeWidth="1" fill="none"/><rect x="25" y="3.5" width="2" height="5" rx="1" fill="currentColor" opacity="0.4"/><rect x="1.5" y="1.5" width="18" height="9" rx="1.5" fill="var(--color-success)"/></svg>,
+};
+
+/* ========== Mock Data ========== */
+const MOCK_SESSIONS = [
+  { id: '1', name: '今天的对话', preview: '我觉得今天工作压力好大...', time: '14:32', unread: 2, emoji: '🌿', bg: '#E8F2F8' },
+  { id: '2', name: '昨天的倾诉', preview: '谢谢你的陪伴，我感觉好多了', time: '昨天', unread: 0, emoji: '🌸', bg: '#F5EBF0' },
+  { id: '3', name: '周末的思考', preview: '关于和朋友的关系，我想了很久...', time: '周六', unread: 0, emoji: '🍃', bg: '#EBF5EC' },
+  { id: '4', name: '感恩日记', preview: '今天完成了三件感恩的事', time: '3/1', unread: 0, emoji: '✨', bg: '#FFF5E8' },
+];
+
+const MOCK_HISTORY = {
+  '今天': [
+    { id: 'h1', title: '工作压力倾诉', summary: '讨论了项目截止日期带来的焦虑感', emotions: ['焦虑', '疲惫'], color: '#F5A623' },
+  ],
+  '本周': [
+    { id: 'h2', title: '人际关系探索', summary: '探讨了与同事沟通中的困扰', emotions: ['困惑', '期待'], color: '#8B9DC3' },
+    { id: 'h3', title: '正念呼吸练习', summary: '完成了10分钟正念呼吸引导', emotions: ['平静'], color: '#6BBF8A' },
+  ],
+  '更早': [
+    { id: 'h4', title: '感恩日记回顾', summary: '回顾了一周的三件感恩之事', emotions: ['感恩', '温暖'], color: '#C4A882' },
+    { id: 'h5', title: '认知重构练习', summary: '用七栏法分析了一个消极想法', emotions: ['领悟'], color: '#3A7CA5' },
+    { id: 'h6', title: '情绪低落时的陪伴', summary: '在难过的夜晚进行了一次深度对话', emotions: ['悲伤', '被理解'], color: '#E57373' },
+  ],
+};
+
+const AI_REPLIES = [
+  '我听到你了。能和我多说说是什么让你有这样的感受吗？',
+  '谢谢你愿意和我分享这些。你的感受是完全可以理解的。',
+  '听起来你最近承受了不少压力。在这种时候，照顾好自己的感受很重要。',
+  '我注意到你提到了这一点。你觉得是什么让你特别在意这件事呢？',
+  '你已经做得很好了。有时候，允许自己休息一下也是一种力量。',
+  '这种感受一定不容易。你愿意试试一个简单的放松练习吗？',
+];
+
+const INITIAL_MESSAGES = [
+  { id: '1', role: 'ai', content: '你好呀，今天过得怎么样？有什么想聊的都可以和我说。', time: '14:30' },
+  { id: '2', role: 'user', content: '今天工作压力好大，感觉喘不过气来...', time: '14:31' },
+  { id: '3', role: 'ai', content: '我听到你了。工作压力大的时候确实会让人感到窒息。能和我说说具体是什么事情让你感到压力最大吗？', time: '14:32' },
+];
+
+/* ========== Status Bar Component ========== */
+function StatusBar() {
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  return (
+    <div className="status-bar">
+      <span>{timeStr}</span>
+      <div className="status-bar-right">
+        <Icons.signal />
+        <Icons.wifi />
+        <Icons.battery />
+      </div>
+    </div>
+  );
+}
+
+/* ========== Tab Bar Component ========== */
+function TabBar({ active, onNavigate }) {
+  const tabs = [
+    { key: 'home', label: '首页', icon: Icons.home },
+    { key: 'history', label: '记录', icon: Icons.history },
+    { key: 'profile', label: '我的', icon: Icons.user },
+  ];
+  return (
+    <div className="tab-bar">
+      {tabs.map(tab => (
+        <button
+          key={tab.key}
+          className={'tab-item' + (active === tab.key ? ' active' : '')}
+          onClick={() => onNavigate(tab.key)}
+        >
+          <tab.icon />
+          <span className="tab-label">{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ========== Home Page ========== */
+function HomePage({ onOpenChat, onNavigate }) {
+  const [selectedMood, setSelectedMood] = useState(null);
+  const moods = [
+    { key: 'great', emoji: '😊', label: '很好' },
+    { key: 'ok', emoji: '😐', label: '一般' },
+    { key: 'low', emoji: '😔', label: '低落' },
+    { key: 'anxious', emoji: '😰', label: '焦虑' },
+    { key: 'angry', emoji: '😤', label: '烦躁' },
+  ];
+
+  return (
+    <div className="phone-screen">
+      <StatusBar />
+      <div className="page-content page-enter">
+        <div className="home-header">
+          <div className="greeting">下午好 ☀️</div>
+          <div className="greeting-sub">今天想聊点什么？</div>
+        </div>
+
+        <div className="mood-card">
+          <div className="mood-card-title">现在的心情</div>
+          <div className="mood-options">
+            {moods.map(m => (
+              <button
+                key={m.key}
+                className={'mood-btn' + (selectedMood === m.key ? ' selected' : '')}
+                onClick={() => setSelectedMood(m.key)}
+              >
+                <span>{m.emoji}</span>
+                <span>{m.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="section-title">最近对话</div>
+        <div className="session-list">
+          {MOCK_SESSIONS.map(s => (
+            <div key={s.id} className="card session-card" onClick={() => onOpenChat(s.id)}>
+              <div className="session-avatar" style={{background: s.bg}}>
+                {s.emoji}
+              </div>
+              <div className="session-info">
+                <div className="session-name">{s.name}</div>
+                <div className="session-preview">{s.preview}</div>
+              </div>
+              <div className="session-meta">
+                <div className="session-time">{s.time}</div>
+                {s.unread > 0 && <div className="session-badge">{s.unread}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button className="fab" onClick={() => onOpenChat('new')}>
+        <Icons.plus />
+      </button>
+      <TabBar active="home" onNavigate={onNavigate} />
+    </div>
+  );
+}
+
+/* ========== Chat Page ========== */
+function ChatPage({ sessionId, onBack }) {
+  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [input, setInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => { scrollToBottom(); }, [messages, isThinking]);
+
+  const handleSend = useCallback(() => {
+    const text = input.trim();
+    if (!text || isThinking) return;
+
+    const userMsg = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: text,
+      time: new Date().getHours().toString().padStart(2,'0') + ':' + new Date().getMinutes().toString().padStart(2,'0'),
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsThinking(true);
+
+    // Simulate AI reply
+    const delay = 1200 + Math.random() * 1500;
+    setTimeout(() => {
+      const reply = AI_REPLIES[Math.floor(Math.random() * AI_REPLIES.length)];
+      const aiMsg = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: reply,
+        time: new Date().getHours().toString().padStart(2,'0') + ':' + new Date().getMinutes().toString().padStart(2,'0'),
+      };
+      setMessages(prev => [...prev, aiMsg]);
+      setIsThinking(false);
+    }, delay);
+  }, [input, isThinking]);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="phone-screen">
+      <StatusBar />
+      <div className="nav-bar">
+        <button className="nav-btn" onClick={onBack}>
+          <Icons.back />
+          <span>返回</span>
+        </button>
+        <div className="chat-nav">
+          <div className="chat-avatar-small">🌿</div>
+          <div className="chat-nav-info">
+            <div className="chat-nav-name">心语</div>
+            <div className="chat-nav-status">● 在线</div>
+          </div>
+        </div>
+        <div style={{width: 60}} />
+      </div>
+
+      <div className="messages-area">
+        {messages.map(msg => (
+          <div key={msg.id} className={'msg-row ' + (msg.role === 'user' ? 'user' : 'ai')}>
+            {msg.role === 'ai' && (
+              <div className="msg-avatar-tiny" style={{background: 'linear-gradient(135deg, #E8F2F8, #F0E8F5)'}}>🌿</div>
+            )}
+            <div>
+              <div className="msg-bubble">{msg.content}</div>
+              <div className="msg-time">{msg.time}</div>
+            </div>
+          </div>
+        ))}
+        {isThinking && (
+          <div className="thinking-dots">
+            <div className="thinking-dot" />
+            <div className="thinking-dot" />
+            <div className="thinking-dot" />
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="chat-input-bar">
+        <div className="chat-input-actions">
+          <button className="chat-action-btn" title="发送图片"><Icons.image /></button>
+        </div>
+        <div className="chat-input-wrapper">
+          <input
+            ref={inputRef}
+            className="chat-input"
+            placeholder="说说你的感受..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+        {input.trim() ? (
+          <button className="send-btn" onClick={handleSend}><Icons.send /></button>
+        ) : (
+          <button className="chat-action-btn" title="语音输入"><Icons.mic /></button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ========== History Page ========== */
+function HistoryPage({ onOpenChat, onNavigate }) {
+  const emotionColors = {
+    '焦虑': { bg: '#FFF3E0', color: '#E65100' },
+    '疲惫': { bg: '#FBE9E7', color: '#BF360C' },
+    '困惑': { bg: '#E8EAF6', color: '#283593' },
+    '期待': { bg: '#E8F5E9', color: '#2E7D32' },
+    '平静': { bg: '#E0F2F1', color: '#00695C' },
+    '感恩': { bg: '#FFF8E1', color: '#F57F17' },
+    '温暖': { bg: '#FCE4EC', color: '#AD1457' },
+    '领悟': { bg: '#E3F2FD', color: '#1565C0' },
+    '悲伤': { bg: '#F3E5F5', color: '#6A1B9A' },
+    '被理解': { bg: '#E8F5E9', color: '#2E7D32' },
+  };
+
+  return (
+    <div className="phone-screen">
+      <StatusBar />
+      <div className="nav-bar">
+        <div />
+        <div className="nav-title">历史记录</div>
+        <div />
+      </div>
+      <div className="page-content page-enter">
+        {Object.entries(MOCK_HISTORY).map(([group, items]) => (
+          <div key={group}>
+            <div className="history-group-label">{group}</div>
+            <div className="history-list">
+              {items.map(item => (
+                <div key={item.id} className="card history-card" onClick={() => onOpenChat(item.id)}>
+                  <div className="history-icon" style={{background: item.color + '18', color: item.color}}>
+                    {item.title.charAt(0)}
+                  </div>
+                  <div className="history-info">
+                    <div className="history-title">{item.title}</div>
+                    <div className="history-summary">{item.summary}</div>
+                    <div className="history-tags">
+                      {item.emotions.map(e => (
+                        <span key={e} className="emotion-tag"
+                          style={{
+                            background: (emotionColors[e] || {bg:'#F5F5F5'}).bg,
+                            color: (emotionColors[e] || {color:'#666'}).color,
+                          }}>
+                          {e}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <Icons.chevron />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <TabBar active="history" onNavigate={onNavigate} />
+    </div>
+  );
+}
+
+/* ========== Profile Page ========== */
+function ProfilePage({ onNavigate }) {
+  const [settings, setSettings] = useState({
+    darkMode: false,
+    notification: true,
+    voiceReply: false,
+    autoSave: true,
+  });
+
+  const toggleSetting = (key) => {
+    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const trendData = [
+    { day: '一', value: 55, color: '#8B9DC3' },
+    { day: '二', value: 40, color: '#E57373' },
+    { day: '三', value: 65, color: '#6BBF8A' },
+    { day: '四', value: 50, color: '#8B9DC3' },
+    { day: '五', value: 75, color: '#6BBF8A' },
+    { day: '六', value: 85, color: '#6BBF8A' },
+    { day: '日', value: 70, color: '#3A7CA5' },
+  ];
+
+  return (
+    <div className="phone-screen">
+      <StatusBar />
+      <div className="nav-bar">
+        <div />
+        <div className="nav-title">我的</div>
+        <div />
+      </div>
+      <div className="page-content page-enter">
+        <div className="profile-header">
+          <div className="profile-avatar">🙂</div>
+          <div className="profile-name">MAOMAO</div>
+          <div className="profile-subtitle">已陪伴 12 天</div>
+        </div>
+
+        <div className="trend-card">
+          <div className="trend-title">本周情绪趋势</div>
+          <div className="trend-chart">
+            {trendData.map(d => (
+              <div key={d.day} className="trend-bar-group">
+                <div className="trend-bar" style={{
+                  height: d.value + '%',
+                  background: d.color,
+                  opacity: 0.75,
+                }} />
+                <span className="trend-label">{d.day}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-group-title">偏好设置</div>
+
+          <div className="settings-item">
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#E8F2F8', color: '#3A7CA5'}}>🔔</div>
+              <span className="settings-label">消息通知</span>
+            </div>
+            <button className={'toggle' + (settings.notification ? ' on' : '')} onClick={() => toggleSetting('notification')}>
+              <div className="toggle-knob" />
+            </button>
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#F0E8F5', color: '#7B61A8'}}>🎙️</div>
+              <span className="settings-label">语音回复</span>
+            </div>
+            <button className={'toggle' + (settings.voiceReply ? ' on' : '')} onClick={() => toggleSetting('voiceReply')}>
+              <div className="toggle-knob" />
+            </button>
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#EBF5EC', color: '#4CAF50'}}>💾</div>
+              <span className="settings-label">自动保存对话</span>
+            </div>
+            <button className={'toggle' + (settings.autoSave ? ' on' : '')} onClick={() => toggleSetting('autoSave')}>
+              <div className="toggle-knob" />
+            </button>
+          </div>
+
+          <div className="settings-group-title">关于</div>
+
+          <div className="settings-item" style={{cursor: 'pointer'}}>
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#FFF5E8', color: '#F5A623'}}>📋</div>
+              <span className="settings-label">隐私政策</span>
+            </div>
+            <Icons.chevron />
+          </div>
+
+          <div className="settings-item" style={{cursor: 'pointer'}}>
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#FCE4EC', color: '#E57373'}}>🗑️</div>
+              <span className="settings-label">清除所有数据</span>
+            </div>
+            <Icons.chevron />
+          </div>
+
+          <div className="settings-item">
+            <div className="settings-item-left">
+              <div className="settings-icon" style={{background: '#F5F5F5', color: '#999'}}>ℹ️</div>
+              <span className="settings-label">版本</span>
+            </div>
+            <span className="settings-value">v0.1.0</span>
+          </div>
+        </div>
+
+        <div style={{height: 20}} />
+      </div>
+      <TabBar active="profile" onNavigate={onNavigate} />
+    </div>
+  );
+}
+
+/* ========== App Root ========== */
+function App() {
+  const [page, setPage] = useState('home');
+  const [chatSessionId, setChatSessionId] = useState(null);
+
+  const handleOpenChat = useCallback((id) => {
+    setChatSessionId(id);
+    setPage('chat');
+  }, []);
+
+  const handleNavigate = useCallback((target) => {
+    setPage(target);
+  }, []);
+
+  const handleBackFromChat = useCallback(() => {
+    setPage('home');
+    setChatSessionId(null);
+  }, []);
+
+  switch (page) {
+    case 'chat':
+      return <ChatPage sessionId={chatSessionId} onBack={handleBackFromChat} />;
+    case 'history':
+      return <HistoryPage onOpenChat={handleOpenChat} onNavigate={handleNavigate} />;
+    case 'profile':
+      return <ProfilePage onNavigate={handleNavigate} />;
+    default:
+      return <HomePage onOpenChat={handleOpenChat} onNavigate={handleNavigate} />;
+  }
+}
+
+/* ========== Render ========== */
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <div className="phone-frame">
+    <App />
+  </div>
+);
+</script>
+</body>
+</html>

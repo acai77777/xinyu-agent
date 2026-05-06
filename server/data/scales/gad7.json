@@ -1,0 +1,37 @@
+{
+  "name": "GAD-7",
+  "full_name": "Generalized Anxiety Disorder 7-item Scale",
+  "description": "广泛性焦虑障碍筛查量表",
+  "instruction": "在过去两周里，以下问题困扰你的频率是？",
+  "items": [
+    {"id": 1, "text": "感到紧张、焦虑或急切"},
+    {"id": 2, "text": "不能停止或控制担忧"},
+    {"id": 3, "text": "对各种各样的事情担忧过多"},
+    {"id": 4, "text": "很难放松下来"},
+    {"id": 5, "text": "由于不安而无法静坐"},
+    {"id": 6, "text": "变得容易烦恼或急躁"},
+    {"id": 7, "text": "感到似乎将有可怕的事情发生"}
+  ],
+  "options": [
+    {"value": 0, "label": "完全不会"},
+    {"value": 1, "label": "好几天"},
+    {"value": 2, "label": "一半以上的天数"},
+    {"value": 3, "label": "几乎每天"}
+  ],
+  "scoring": {
+    "ranges": [
+      {"min": 0,  "max": 4,  "category": "none",     "label": "无焦虑"},
+      {"min": 5,  "max": 9,  "category": "mild",      "label": "轻度焦虑"},
+      {"min": 10, "max": 14, "category": "moderate",   "label": "中度焦虑"},
+      {"min": 15, "max": 21, "category": "severe",     "label": "重度焦虑"}
+    ],
+    "total_min": 0,
+    "total_max": 21
+  },
+  "safety_items": [],
+  "clinical_notes": [
+    "GAD-7总分≥10通常作为焦虑症筛查的临界值",
+    "可用于评估治疗效果，建议定期复测",
+    "本量表不能替代专业诊断，仅用于症状筛查"
+  ]
+}

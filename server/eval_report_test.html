@@ -1,0 +1,1776 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心理学Agent评测报告</title>
+<style>
+:root {
+    --primary: #4a90d9;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --danger: #e74c3c;
+    --bg: #f5f7fa;
+    --card-bg: #ffffff;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --border: #e0e6ed;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 24px;
+}
+.container { max-width: 1200px; margin: 0 auto; }
+h1 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 4px;
+    color: var(--primary);
+}
+.subtitle {
+    text-align: center;
+    color: var(--text-light);
+    margin-bottom: 32px;
+    font-size: 14px;
+}
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+.metric-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+}
+.metric-card .label { color: var(--text-light); font-size: 13px; margin-bottom: 8px; }
+.metric-card .value { font-size: 32px; font-weight: 700; }
+.metric-card .sub { color: var(--text-light); font-size: 12px; margin-top: 4px; }
+.value.high { color: var(--success); }
+.value.medium { color: var(--warning); }
+.value.low { color: var(--danger); }
+.section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    border: 1px solid var(--border);
+}
+.section h2 {
+    font-size: 20px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+}
+.section h2:hover { color: var(--primary); }
+/* 端到端用例卡片 */
+.pipeline-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+.pipeline-card.all-passed { border-left: 4px solid var(--success); }
+.pipeline-card.has-failure { border-left: 4px solid var(--danger); }
+.pipeline-card.needs-review { border-left: 4px solid var(--warning); }
+.pipeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.pipeline-header .case-id { font-weight: 600; font-family: monospace; font-size: 14px; }
+.pipeline-header .source { color: var(--text-light); font-size: 12px; }
+.pipeline-input {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+.pipeline-input .label { font-weight: 600; font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+.module-results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+.module-result-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 13px;
+}
+.module-result-card.passed { background: #f0faf0; }
+.module-result-card.failed { background: #fef0f0; }
+.module-result-card .module-name {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.module-result-card .score-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    margin-bottom: 8px;
+}
+.module-result-card .score-fill {
+    height: 100%;
+    border-radius: 2px;
+}
+.module-result-card .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+    border-bottom: 1px dotted var(--border);
+}
+.module-result-card .detail-row:last-child { border-bottom: none; }
+.module-result-card .detail-row .k { color: var(--text-light); }
+/* 旧格式卡片 */
+.case-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+.case-card.passed { border-left: 4px solid var(--success); }
+.case-card.failed { border-left: 4px solid var(--danger); }
+.case-card.review { border-left: 4px solid var(--warning); }
+.case-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.case-id { font-weight: 600; font-family: monospace; }
+.badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+.badge.pass { background: #e8f5e9; color: #2e7d32; }
+.badge.fail { background: #ffebee; color: #c62828; }
+.badge.review { background: #fff3e0; color: #e65100; }
+.field { margin: 6px 0; }
+.field .label { font-weight: 500; color: var(--text-light); font-size: 13px; }
+.field .content { margin-top: 2px; }
+.comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+}
+.comparison > div {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 14px;
+}
+.comparison .label { font-weight: 600; margin-bottom: 6px; }
+.scores-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 12px 0;
+}
+.score-item { min-width: 180px; }
+.score-item .dim { font-size: 13px; color: var(--text-light); }
+.stars { color: #f39c12; letter-spacing: 2px; }
+.red-flag {
+    background: #ffebee;
+    color: #c62828;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: inline-block;
+    margin: 2px;
+}
+.review-section { background: #fff3e0; border: 1px solid #ffe0b2; }
+.review-item {
+    padding: 8px 12px;
+    margin: 6px 0;
+    background: white;
+    border-radius: 6px;
+    font-size: 14px;
+}
+details { margin: 4px 0; }
+summary { cursor: pointer; font-weight: 500; padding: 4px 0; }
+summary:hover { color: var(--primary); }
+.collapsible { display: none; }
+.collapsible.open { display: block; }
+.overall-score {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 13px;
+    color: white;
+}
+</style>
+<script>
+function toggleSection(id) {
+    var el = document.getElementById(id);
+    el.classList.toggle('open');
+}
+</script>
+</head>
+<body>
+<div class="container">
+<h1>心理学Agent评测报告</h1>
+<p class="subtitle">生成时间: 2026-03-13 12:45:28</p>
+
+<div class="dashboard"><div class="metric-card">
+    <div class="label">情绪识别</div>
+    <div class="value low">30%</div>
+    <div class="sub">9/30 通过</div>
+</div><div class="metric-card">
+    <div class="label">认知扭曲</div>
+    <div class="value medium">64%</div>
+    <div class="sub">16/25 通过</div>
+</div><div class="metric-card">
+    <div class="label">危机检测</div>
+    <div class="value medium">70%</div>
+    <div class="sub">14/20 通过</div>
+</div><div class="metric-card">
+    <div class="label">策略规划</div>
+    <div class="value high">98%</div>
+    <div class="sub">63/64 通过</div>
+</div></div>
+<div class="section">
+    <h2 onclick="toggleSection('section_pipeline')">
+        端到端流水线评测 (25/54 全通过，平均 83%)
+    </h2>
+    <div id="section_pipeline" class="collapsible open">
+        <div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_001</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        谢谢施老师，我会按照您的建议去做的。希望我能尽快摆脱这种状态，重拾工作动力。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_002</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        谢谢您的鼓励。那我们现在就开始吧，我希望能尽快摆脱这种抑郁情绪。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_003</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        不好意思，上次因为一些事没有按时来。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_004</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        其实，我年轻时挺喜欢做手工的，但是因为工作忙，就没有时间继续了。现在退休了，我想重新捡起来，但是家人好像并不感兴趣。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_005</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        是的，我真的很认真思考过这些问题。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>medium</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card has-failure">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_006</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">82%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        你好，心理咨询师。我觉得最近自己的情绪波动很大，有时候晚上甚至会偷偷哭。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_007</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        希望能在公共场合自如表达自己，不再胆怯。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_008</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        那我该如何表扬他人呢？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_009</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        所以，我想找个适合自己的工作。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_010</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        因为我觉得自己需要多试试不同的工作，才能找到适合自己的。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_011</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">50%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我没有创业，只是一直在小公司工作。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_012</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">50%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        行测得分还不错，心里稍微安心了一些，但还是紧张申论的结果。觉得自己怎么努力都没有完全把控的感觉。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_013</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        谢谢你的帮助，我会好好配合的。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_014</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">54%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我最近特别担心自己会得艾滋病，总是很害怕，不知道该怎么办。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_015</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        比如老师建议多参与集体活动、严格管理时间表，但我现在晚上迟睡早起，白天疲累，顾不上这些建议。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_016</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        是啊，总是很自然地聊起来，有时候感觉像是一种无形的竞争。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_017</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        对的，每次和他说话我都会特别开心，好像一切烦恼都被减轻了。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_018</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我知道我不愿意妥协，但他家人的期望给了我很大的压力。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_019</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">78%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我记得小时候，我一直觉得自己是个多余的人。父母离异后，我跟着姑姑生活，虽然姑父对我很好，但我总是觉得不属于那个家。后来，我早早结婚，试图逃离那种不安的感觉，但现实并没有我想象中的美好。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[&#x27;全或无思维&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">类型不匹配: 期望[&#x27;贴标签&#x27;, &#x27;个人化&#x27;], 实际[&#x27;全或无思维&#x27;]</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_020</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        嗯，我明白了。那我现在该怎么办呢？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_021</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">50%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我也希望我们能共同找出一个解决办法，但他似乎不太愿意深入讨论这些问题。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_022</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">54%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我觉得小儿子的出生加大了我们的压力，而我老公变得更疏离，把家里的事情看成了更大的负担。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_023</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我会试着去做。
+
+（对话练习过程）
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_024</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        谢谢你，咨询师，每次和你聊完我都感觉好多了。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card has-failure">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_025</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">90%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我曾去医院检查，被诊断为中度抑郁和焦虑。医生给我开了药，但我觉得药物副作用很大，很担心对身体造成伤害。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>担心</span></div><div class="detail-row"><span class="k">实际</span><span>担忧</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">强度超范围: 期望[5-7], 实际8</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>medium</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_026</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">60%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        删掉游戏之后，虽然不再花时间玩游戏，但还是有时候会无意识地拿起手机看别的东西，时间还是浪费了不少。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:20%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>无奈</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;无奈&#x27;; 强度超范围: 期望[3-5], 实际6</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_027</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我后悔的是，自己当初没有认真考虑就向老板透露了出国的计划。虽然我非常期待能有新的生活和学习机会，但未考虑到这会对目前的工作产生这样的负面影响。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>后悔</span></div><div class="detail-row"><span class="k">实际</span><span>regret</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_028</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        嗯，我觉得有道理。但我不知道该如何开始。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>confused</span></div><div class="detail-row"><span class="k">强度</span><span>4</span></div><div class="detail-row"><span class="k">效价</span><span>neutral</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_029</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">53%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我觉得老师的建议挺好的，只是我的睡眠问题解决不了，这些建议就很难实施。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>无助</span></div><div class="detail-row"><span class="k">实际</span><span>沮丧</span></div><div class="detail-row"><span class="k">强度</span><span>4</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;无助&#x27;, 实际&#x27;沮丧&#x27;</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_030</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        嗯，那种幸福和放松在某些时刻是有的，但依然有被过去困扰的时候。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>复杂矛盾</span></div><div class="detail-row"><span class="k">强度</span><span>5</span></div><div class="detail-row"><span class="k">效价</span><span>neutral</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;复杂矛盾&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_031</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        是的，我有胃疼的问题，之前做过一些治疗，但是情绪一激动的时候，胃疼就又会发作。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困扰</span></div><div class="detail-row"><span class="k">实际</span><span>焦虑</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;困扰&#x27;, 实际&#x27;焦虑&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_032</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">60%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我明白，现在的经济环境确实不容易。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:20%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>平静</span></div><div class="detail-row"><span class="k">实际</span><span>understanding</span></div><div class="detail-row"><span class="k">强度</span><span>5</span></div><div class="detail-row"><span class="k">效价</span><span>neutral</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;平静&#x27;, 实际&#x27;understanding&#x27;; 强度超范围: 期望[2-4], 实际5</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_033</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">73%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        嗯，我会考虑的。听您说出来，心里好像稍微轻松了一点。我是不是还可以再找时间预约一次咨询呢？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:20%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>轻松</span></div><div class="detail-row"><span class="k">实际</span><span>hope</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>positive</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;轻松&#x27;, 实际&#x27;hope&#x27;; 强度超范围: 期望[3-5], 实际6</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_034</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我最近遇到了一些困难，感觉自己无法应对。我甚至开始怀疑自己是否适应这个社会。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>无助</span></div><div class="detail-row"><span class="k">实际</span><span>sadness</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;无助&#x27;, 实际&#x27;sadness&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_035</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        几个月前，我身体出现了一些问题，从此就担心睡不好会影响身体健康，结果越担心越睡不着。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>焦虑</span></div><div class="detail-row"><span class="k">实际</span><span>焦虑</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_036</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">56%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        是的，我父母总觉得读书是唯一的出路，一直用这个来压迫我。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>愤怒</span></div><div class="detail-row"><span class="k">实际</span><span>愤怒</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">强度超范围: 期望[5-7], 实际8</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card has-failure">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_037</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">85%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我觉得自己一直在自责和焦虑中度过。我试图寻找一些兴趣爱好，比如音乐和美术，但总是感觉不尽如人意。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>焦虑</span></div><div class="detail-row"><span class="k">实际</span><span>焦虑</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">强度超范围: 期望[5-7], 实际8</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_038</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        心理咨询师，您好。我最近发现我老公可能出轨了，我很痛苦，我该怎么办？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>痛苦</span></div><div class="detail-row"><span class="k">实际</span><span>痛苦</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_039</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我觉得这让我缺乏真正的朋友，让我无法和别人建立深厚的关系。所以每当我感到孤独的时候，也没什么人可以倾诉。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>孤独</span></div><div class="detail-row"><span class="k">实际</span><span>悲伤</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;孤独&#x27;, 实际&#x27;悲伤&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_040</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我会加油的。谢谢您的鼓励和支持！
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>感恩</span></div><div class="detail-row"><span class="k">实际</span><span>gratitude</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>positive</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_041</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">76%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我会试试。但我觉得我的问题不仅仅是思维方式，还有人际关系。我该如何改善与他人的交往呢？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:30%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>concerned</span></div><div class="detail-row"><span class="k">强度</span><span>5</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;concerned&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;negative&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_042</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">66%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        对，这半年来，我的情绪一直不太稳定，变得很消极。我觉得自己在职场发展上停滞不前，这给了我很大的压力，也让我每天都很难开心起来。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>沮丧</span></div><div class="detail-row"><span class="k">实际</span><span>沮丧</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">认知扭曲 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">未检出任何认知扭曲（期望检出）</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card has-failure">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_043</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">90%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        就是说，我以前总觉得辞职后会很快乐，但现在发现，我需要的可能不仅仅是辞职，还需要调整自己的心态。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>困惑</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>neutral</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">强度超范围: 期望[3-5], 实际6</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">危机检测 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>low</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>normal</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;gratitude&#x27;, &#x27;strength_spotting&#x27;, &#x27;flow&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card has-failure">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_044</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">85%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我希望有一个温馨、安静的家，我和丈夫可以互相支持、关爱，共同面对生活中的挑战。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:70%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>希望</span></div><div class="detail-row"><span class="k">实际</span><span>希望</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>positive</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">强度超范围: 期望[5-7], 实际8</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_045</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">66%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我试试。我担心毕业论文，但我相信通过努力，我会顺利完成学业。关于未来生活，我会积极面对挑战，努力实现自己的目标。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>担心</span></div><div class="detail-row"><span class="k">实际</span><span>determined</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>positive</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;担心&#x27;, 实际&#x27;determined&#x27;; 强度超范围: 期望[3-5], 实际6; 效价不匹配: 期望&#x27;negative&#x27;, 实际&#x27;positive&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_046</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">71%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我和我老公是大学同学，我们在一起已经十几年了，有一个5岁的孩子。最近我发现他可能出轨了，我真的很痛苦。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>痛苦</span></div><div class="detail-row"><span class="k">实际</span><span>悲伤</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;痛苦&#x27;, 实际&#x27;悲伤&#x27;</div>
+</div><div class="module-result-card failed">
+    <div class="module-name">危机检测 <span class="badge fail">FAIL</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:64%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望等级</span><span>medium</span></div><div class="detail-row"><span class="k">实际等级</span><span>low</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">风险等级偏差: 期望&#x27;medium&#x27;, 实际&#x27;low&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_047</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我明白你的意思，但我还是很难放下这种渴望。我害怕失去妈妈的关注，感觉自己无法生存下去。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>恐惧</span></div><div class="detail-row"><span class="k">实际</span><span>悲伤</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;恐惧&#x27;, 实际&#x27;悲伤&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_048</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我有时感觉自己很有悟性，特别是在精神分析方面，但另一方面，我感觉自学了四个月后，给别人做咨询时很有挫败感。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>挫败</span></div><div class="detail-row"><span class="k">实际</span><span>frustration</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>diffuse</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_049</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">76%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我会试着跟家人多沟通。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:30%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>平静</span></div><div class="detail-row"><span class="k">实际</span><span>希望</span></div><div class="detail-row"><span class="k">强度</span><span>4</span></div><div class="detail-row"><span class="k">效价</span><span>positive</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;平静&#x27;, 实际&#x27;希望&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;positive&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>否</span></div><div class="detail-row"><span class="k">实际检出</span><span>[]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_050</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">50%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好吧，我希望能摆脱这种痛苦，找到生活的意义。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:0%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>希望</span></div><div class="detail-row"><span class="k">实际</span><span>悲伤</span></div><div class="detail-row"><span class="k">强度</span><span>8</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;希望&#x27;, 实际&#x27;悲伤&#x27;; 强度超范围: 期望[5-7], 实际8; 效价不匹配: 期望&#x27;positive&#x27;, 实际&#x27;negative&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_051</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">75%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我喜欢打篮球，可是妈妈说那没用，让我把时间用在学习上。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:50%; background:var(--warning);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>失望</span></div><div class="detail-row"><span class="k">实际</span><span>失落</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;失望&#x27;, 实际&#x27;失落&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_052</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        我觉得我小时候对父亲的愤怒一直没有机会发泄出来。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>愤怒</span></div><div class="detail-row"><span class="k">实际</span><span>愤怒</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card all-passed">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_053</span>
+            <span class="source">[CPsyCoun]</span>
+        </span>
+        <span class="overall-score" style="background:var(--success);">100%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        好的，我会试试看。但我还是害怕，万一他再次出轨，我该如何面对？
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card passed">
+    <div class="module-name">情绪识别 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>恐惧</span></div><div class="detail-row"><span class="k">实际</span><span>恐惧</span></div><div class="detail-row"><span class="k">强度</span><span>7</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">全部匹配</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">认知扭曲 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">应检出</span><span>是</span></div><div class="detail-row"><span class="k">实际检出</span><span>[&#x27;灾难化&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">判断正确</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>distressed</span></div><div class="detail-row"><span class="k">主策略</span><span>active_listening</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;reflective_listening&#x27;, &#x27;emotional_validation&#x27;, &#x27;open_exploration&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div><div class="pipeline-card needs-review">
+    <div class="pipeline-header">
+        <span>
+            <span class="case-id">e2e_054</span>
+            <span class="source">[PsyDial]</span>
+        </span>
+        <span class="overall-score" style="background:var(--warning);">65%</span>
+    </div>
+    <div class="pipeline-input">
+        <div class="label">输入文本</div>
+        是的，我还在希望中徘徊，所以才来寻求帮助，看看自己的感觉是否能有一个出口，或者找到继续前行的答案。
+    </div>
+    <div class="module-results-grid">
+        <div class="module-result-card failed">
+    <div class="module-name">情绪识别 <span class="badge review">REVIEW</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:30%; background:var(--danger);"></div></div>
+    <div class="detail-row"><span class="k">期望</span><span>困惑</span></div><div class="detail-row"><span class="k">实际</span><span>期望混合困惑</span></div><div class="detail-row"><span class="k">强度</span><span>6</span></div><div class="detail-row"><span class="k">效价</span><span>negative</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;期望混合困惑&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;negative&#x27;</div>
+</div><div class="module-result-card passed">
+    <div class="module-name">策略规划 <span class="badge pass">PASS</span></div>
+    <div class="score-bar"><div class="score-fill" style="width:100%; background:var(--success);"></div></div>
+    <div class="detail-row"><span class="k">情绪状态</span><span>positive</span></div><div class="detail-row"><span class="k">主策略</span><span>positive_psychology</span></div><div class="detail-row"><span class="k">技术</span><span>[&#x27;meaning_exploration&#x27;, &#x27;best_possible_self&#x27;, &#x27;savoring&#x27;]</span></div>
+    <div style="margin-top:6px; font-size:12px; color:var(--text-light);">策略与上游输出一致</div>
+</div>
+    </div>
+</div>
+    </div>
+</div>
+<div class="section review-section">
+    <h2>需人工复核项 (25 项)</h2>
+    <div class="review-item">
+    <b>e2e_011</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_012</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_014</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_019</b> [distortion] — 类型不匹配: 期望[&#x27;贴标签&#x27;, &#x27;个人化&#x27;], 实际[&#x27;全或无思维&#x27;]
+</div><div class="review-item">
+    <b>e2e_021</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_022</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_026</b> [emotion] — 情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;无奈&#x27;; 强度超范围: 期望[3-5], 实际6
+</div><div class="review-item">
+    <b>e2e_029</b> [emotion] — 情绪类型不匹配: 期望&#x27;无助&#x27;, 实际&#x27;沮丧&#x27;
+</div><div class="review-item">
+    <b>e2e_029</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_030</b> [emotion] — 情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;复杂矛盾&#x27;
+</div><div class="review-item">
+    <b>e2e_031</b> [emotion] — 情绪类型不匹配: 期望&#x27;困扰&#x27;, 实际&#x27;焦虑&#x27;
+</div><div class="review-item">
+    <b>e2e_032</b> [emotion] — 情绪类型不匹配: 期望&#x27;平静&#x27;, 实际&#x27;understanding&#x27;; 强度超范围: 期望[2-4], 实际5
+</div><div class="review-item">
+    <b>e2e_033</b> [emotion] — 情绪类型不匹配: 期望&#x27;轻松&#x27;, 实际&#x27;hope&#x27;; 强度超范围: 期望[3-5], 实际6
+</div><div class="review-item">
+    <b>e2e_034</b> [emotion] — 情绪类型不匹配: 期望&#x27;无助&#x27;, 实际&#x27;sadness&#x27;
+</div><div class="review-item">
+    <b>e2e_036</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_039</b> [emotion] — 情绪类型不匹配: 期望&#x27;孤独&#x27;, 实际&#x27;悲伤&#x27;
+</div><div class="review-item">
+    <b>e2e_041</b> [emotion] — 情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;concerned&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;negative&#x27;
+</div><div class="review-item">
+    <b>e2e_042</b> [distortion] — 未检出任何认知扭曲（期望检出）
+</div><div class="review-item">
+    <b>e2e_045</b> [emotion] — 情绪类型不匹配: 期望&#x27;担心&#x27;, 实际&#x27;determined&#x27;; 强度超范围: 期望[3-5], 实际6; 效价不匹配: 期望&#x27;negative&#x27;, 实际&#x27;positive&#x27;
+</div><div class="review-item">
+    <b>e2e_046</b> [emotion] — 情绪类型不匹配: 期望&#x27;痛苦&#x27;, 实际&#x27;悲伤&#x27;
+</div><div class="review-item">
+    <b>e2e_047</b> [emotion] — 情绪类型不匹配: 期望&#x27;恐惧&#x27;, 实际&#x27;悲伤&#x27;
+</div><div class="review-item">
+    <b>e2e_049</b> [emotion] — 情绪类型不匹配: 期望&#x27;平静&#x27;, 实际&#x27;希望&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;positive&#x27;
+</div><div class="review-item">
+    <b>e2e_050</b> [emotion] — 情绪类型不匹配: 期望&#x27;希望&#x27;, 实际&#x27;悲伤&#x27;; 强度超范围: 期望[5-7], 实际8; 效价不匹配: 期望&#x27;positive&#x27;, 实际&#x27;negative&#x27;
+</div><div class="review-item">
+    <b>e2e_051</b> [emotion] — 情绪类型不匹配: 期望&#x27;失望&#x27;, 实际&#x27;失落&#x27;
+</div><div class="review-item">
+    <b>e2e_054</b> [emotion] — 情绪类型不匹配: 期望&#x27;困惑&#x27;, 实际&#x27;期望混合困惑&#x27;; 效价不匹配: 期望&#x27;neutral&#x27;, 实际&#x27;negative&#x27;
+</div>
+</div>
+</div>
+</body>
+</html>

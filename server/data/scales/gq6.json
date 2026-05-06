@@ -1,0 +1,41 @@
+{
+  "name": "GQ-6",
+  "full_name": "Gratitude Questionnaire-6",
+  "description": "感恩程度量表",
+  "instruction": "请根据你的日常感受，对以下每个陈述进行评分。",
+  "items": [
+    {"id": 1, "text": "我在生活中有很多值得感恩的事"},
+    {"id": 2, "text": "如果我要列出所有我感恩的事情，那会是一个很长的清单"},
+    {"id": 3, "text": "当我环顾四周，我发现这个世界没什么值得感恩的"},
+    {"id": 4, "text": "我对很多不同的人心怀感恩"},
+    {"id": 5, "text": "随着年龄增长，我发现自己更能欣赏生活中的人、事、物"},
+    {"id": 6, "text": "很长时间才能让我对某人或某事感到感恩"}
+  ],
+  "options": [
+    {"value": 1, "label": "非常不同意"},
+    {"value": 2, "label": "不同意"},
+    {"value": 3, "label": "有点不同意"},
+    {"value": 4, "label": "中立"},
+    {"value": 5, "label": "有点同意"},
+    {"value": 6, "label": "同意"},
+    {"value": 7, "label": "非常同意"}
+  ],
+  "reverse_items": [3, 6],
+  "scoring": {
+    "ranges": [
+      {"min": 6,  "max": 18, "category": "low",       "label": "感恩程度较低"},
+      {"min": 19, "max": 26, "category": "below_avg",  "label": "感恩程度偏低"},
+      {"min": 27, "max": 34, "category": "average",     "label": "感恩程度中等"},
+      {"min": 35, "max": 38, "category": "above_avg",   "label": "感恩程度较高"},
+      {"min": 39, "max": 42, "category": "high",        "label": "感恩程度很高"}
+    ],
+    "total_min": 6,
+    "total_max": 42
+  },
+  "clinical_notes": [
+    "GQ-6由McCullough等人于2002年开发，测量个体的感恩特质",
+    "第3题和第6题为反向计分题（8 - 原始分 = 反向分）",
+    "感恩特质与幸福感、生活满意度和亲社会行为正相关",
+    "本量表用于积极心理学评估，帮助了解用户的感恩倾向"
+  ]
+}

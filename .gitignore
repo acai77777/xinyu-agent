@@ -1,0 +1,50 @@
+# ===== 敏感配置 =====
+server/.env
+.env
+
+# ===== 运行时数据 =====
+server/data/agent.db
+server/data/agent.db-journal
+server/data/agent.db-wal
+server/data/agent.db-shm
+server/data/chroma/
+server/data/llm_calls.jsonl
+server/data/uploads/
+server/data/psyqa_*.json
+server/data/psyqa_*.csv
+
+# ===== 评测结果 =====
+server/evaluation/results/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# ===== 前端 =====
+app/node_modules/
+app/.expo/
+app/dist/
+app/*.map
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== 版权材料 =====
+*.pdf
+真实的幸福.txt
+
+# ===== 个人文档 =====
+interview-prep.md
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db

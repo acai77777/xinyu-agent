@@ -1,0 +1,262 @@
+{
+  "book": "真实的幸福",
+  "author": "Martin Seligman",
+  "topics": {
+    "perma_model": {
+      "title": "PERMA幸福五要素模型",
+      "title_en": "PERMA Model of Well-Being",
+      "plain_explanation": "幸福不是只有一种样子。心理学家Seligman认为幸福由五个独立的维度构成，每个人可以在不同维度找到自己的幸福。",
+      "elements": [
+        {"letter": "P", "name": "积极情绪", "name_en": "Positive Emotion", "desc": "快乐、满足、感恩、希望、爱等愉悦感受"},
+        {"letter": "E", "name": "投入", "name_en": "Engagement", "desc": "全身心沉浸在活动中的心流状态"},
+        {"letter": "R", "name": "人际关系", "name_en": "Relationships", "desc": "感到被关心、被理解、有归属感"},
+        {"letter": "M", "name": "意义", "name_en": "Meaning", "desc": "相信生活有价值，与比自己更宏大的事物连接"},
+        {"letter": "A", "name": "成就", "name_en": "Accomplishment", "desc": "朝目标前进、拥有成就感"}
+      ],
+      "practice": "定期对五个维度进行自我评估，找出短板进行针对性提升",
+      "research": "践行PERMA五要素的人更不容易抑郁，甚至有更低的过早死亡风险"
+    },
+    "learned_optimism": {
+      "title": "习得性乐观与习得性无助",
+      "title_en": "Learned Optimism vs Learned Helplessness",
+      "plain_explanation": "当人反复经历无法控制的负面事件后，可能'学会了'无助——即使有了改变的机会也不再尝试。但好消息是，乐观也可以像技能一样被学习和培养。",
+      "key_insight": "区分乐观者和悲观者的核心机制是'解释风格'——你怎么解释发生在自己身上的事。",
+      "abcde_model": {
+        "A": "逆境（Adversity）——遇到的不利事件",
+        "B": "信念（Belief）——你的想法",
+        "C": "后果（Consequence）——想法造成的影响",
+        "D": "反驳（Disputation）——挑战这些信念",
+        "E": "激活（Energisation）——新的结果"
+      },
+      "research": "乐观者往往成就更高、健康更好。悲观者更可能放弃，更易患抑郁。"
+    },
+    "explanatory_styles": {
+      "title": "解释风格（3P维度）",
+      "title_en": "Explanatory Styles (the 3 Ps)",
+      "plain_explanation": "解释风格是你对生活事件的习惯性解释方式，通过三个维度来评估。",
+      "dimensions": [
+        {
+          "name": "持久性", "name_en": "Permanence",
+          "pessimist": "坏事是永久的：'我永远都做不好'",
+          "optimist": "坏事是暂时的：'这次失败了，下次会好'"
+        },
+        {
+          "name": "普遍性", "name_en": "Pervasiveness",
+          "pessimist": "一个领域失败等于全面失败：'我什么都做不好'",
+          "optimist": "限定在特定领域：'这件事没做好，其他事我还行'"
+        },
+        {
+          "name": "个人化", "name_en": "Personalization",
+          "pessimist": "坏事归咎自己：'都是我的错'",
+          "optimist": "坏事归因外部：'运气不好/环境不利'"
+        }
+      ],
+      "optimist_formula": "发生的事只是运气不好（非个人化），只是暂时的挫折（非永久化），只影响了众多目标中的一个（非普遍化）",
+      "practice": "记录一周内的好事和坏事，分析自己在三个维度上的解释特征，然后刻意用更乐观的解释替换"
+    },
+    "via_strengths": {
+      "title": "性格优势与美德（VIA分类）",
+      "title_en": "Character Strengths and Virtues (VIA)",
+      "plain_explanation": "每个人都有自己独特的性格优势。发现并运用这些优势，不仅能让你更快乐，也能帮助你更好地应对困难。",
+      "virtues": [
+        {"virtue": "智慧与知识", "strengths": ["创造力", "好奇心", "判断力", "好学", "洞察力"]},
+        {"virtue": "勇气", "strengths": ["勇敢", "坚毅", "诚实", "热忱"]},
+        {"virtue": "人道", "strengths": ["爱", "善良", "社会智慧"]},
+        {"virtue": "正义", "strengths": ["团队精神", "公平", "领导力"]},
+        {"virtue": "节制", "strengths": ["宽恕", "谦逊", "审慎", "自律"]},
+        {"virtue": "超越", "strengths": ["审美", "感恩", "希望", "幽默", "灵性"]}
+      ],
+      "signature_strengths": "每人通常拥有3-7个标志优势——那些你拥有、庆祝并经常运用的优势",
+      "practice": "识别排名前5-7的优势，选择一个标志优势每天以新方式使用，持续一周",
+      "research": "每天以新方式使用标志优势，一周后幸福感增加、抑郁减少，效果持续6个月"
+    },
+    "happiness_formula": {
+      "title": "幸福公式",
+      "title_en": "The Happiness Formula: H = S + C + V",
+      "plain_explanation": "塞利格曼将幸福研究提炼为一个简洁公式。",
+      "formula": "H = S + C + V",
+      "components": [
+        {"letter": "H", "name": "持久幸福水平", "proportion": null},
+        {"letter": "S", "name": "设定点（基因和早期经历）", "proportion": "约50%", "note": "很大程度不受控制"},
+        {"letter": "C", "name": "生活条件（外部因素）", "proportion": "约10%", "note": "基本舒适之后赚更多钱对幸福感影响不大"},
+        {"letter": "V", "name": "主观控制因素（你的选择）", "proportion": "约40%", "note": "能够显著影响的部分"}
+      ],
+      "practice": "重点关注V：对过去培养感恩和宽恕，对未来培养希望和乐观，对当下练习品味和正念"
+    },
+    "flow_theory": {
+      "title": "心流理论",
+      "title_en": "Flow Theory",
+      "author": "Mihaly Csikszentmihalyi",
+      "plain_explanation": "你有没有做某件事时完全忘记了时间？那种全身心投入、挑战和能力刚好匹配的状态就叫心流。",
+      "conditions": [
+        "清晰的目标和进度反馈",
+        "即时反馈",
+        "挑战与技能的平衡——太容易会无聊，太难会焦虑"
+      ],
+      "characteristics": [
+        "对手头任务的强烈专注",
+        "行动与意识的融合",
+        "对活动的控制感",
+        "自我意识的消失",
+        "时间感扭曲"
+      ],
+      "states_grid": [
+        {"challenge": "低", "skill": "低", "state": "冷漠"},
+        {"challenge": "低", "skill": "高", "state": "无聊"},
+        {"challenge": "高", "skill": "低", "state": "焦虑"},
+        {"challenge": "高", "skill": "高", "state": "心流"}
+      ],
+      "practice": "识别让你忘我的活动，刻意安排更多类似活动；调节挑战-技能平衡；运用核心优势更容易进入心流"
+    },
+    "gratitude_interventions": {
+      "title": "感恩干预",
+      "title_en": "Gratitude Interventions",
+      "plain_explanation": "通过刻意练习感恩——注意、记录和欣赏生活中美好的事物——可以显著提升幸福感。",
+      "methods": [
+        {"name": "感恩清单", "desc": "列出值得感恩的事物"},
+        {"name": "感恩拜访", "desc": "写感恩信并亲自读给受恩人听"},
+        {"name": "感恩日记", "desc": "每天或每周记录感恩的事项"},
+        {"name": "三件好事", "desc": "每天记录三件好事及其原因"}
+      ],
+      "research": "荟萃分析：感恩干预使生活满意度提高6.86%，焦虑降低7.76%，抑郁降低6.89%"
+    },
+    "three_good_things": {
+      "title": "三件好事练习",
+      "title_en": "Three Good Things Exercise",
+      "plain_explanation": "每天晚上写下当天发生的三件好事，并思考它们为什么会发生。关键在于不仅记录好事，还要反思原因。",
+      "instructions": [
+        "每天晚上睡前花5-10分钟",
+        "写下今天发生的三件好事（可大可小）",
+        "在每件好事旁边写下：这件好事为什么会发生？",
+        "至少坚持一周"
+      ],
+      "research": "原始研究：一周后比基线更快乐、更少抑郁，效果在3个月和6个月随访时仍保持（限自发继续练习者）"
+    },
+    "savoring": {
+      "title": "品味技术",
+      "title_en": "Savoring Techniques",
+      "author": "Fred B. Bryant & Joseph Veroff",
+      "plain_explanation": "品味是主动地、有意识地延长和增强积极体验的能力。就像品味美食不只是吃，而是放慢速度注意味道和香气一样。",
+      "time_dimensions": [
+        {"name": "回忆", "name_en": "Reminiscing", "desc": "品味过去——精神回顾过去的积极体验"},
+        {"name": "品味当下", "name_en": "Savoring the Moment", "desc": "正念地关注当下的积极体验"},
+        {"name": "期待", "name_en": "Anticipating", "desc": "品味未来——思考可能发生的积极体验"}
+      ],
+      "practices": [
+        "找一张老照片，花10分钟沉浸在美好记忆中",
+        "吃饭时放慢速度，注意食物的每一层味道",
+        "在快乐时刻暂停，对自己说'这一刻真好'",
+        "详细规划一次期待的活动"
+      ],
+      "research": "品味能力与更高的生活质量和更强的心理韧性显著相关"
+    },
+    "temporal_happiness": {
+      "title": "幸福的三个时间维度",
+      "title_en": "Three Temporal Dimensions of Happiness",
+      "plain_explanation": "真实的幸福由三个独立的时间维度组成：对过去的满足感、对现在的愉悦与投入、对未来的希望与乐观。这三个维度可以独立变化，你可以对每个维度分别进行提升。",
+      "dimensions": [
+        {"name": "对过去", "emotions": "满足、骄傲、平静", "strategies": "感恩与宽恕"},
+        {"name": "对现在", "emotions": "愉悦、心流、满足", "strategies": "品味与正念"},
+        {"name": "对未来", "emotions": "乐观、希望、信心", "strategies": "反驳悲观思维"}
+      ],
+      "key_principles": [
+        "三个维度相互独立——你可能对过去满足但对未来悲观",
+        "每个维度有特定的提升策略",
+        "建立全面的幸福需要在三个维度上都有投入"
+      ],
+      "practice": "自评三个时间维度的幸福水平（1-10分），找出最薄弱的维度并使用对应策略提升"
+    },
+    "forgiveness": {
+      "title": "宽恕心理学",
+      "title_en": "Psychology of Forgiveness (REACH Model)",
+      "plain_explanation": "宽恕不等于遗忘或认可伤害，而是主动选择放下怨恨，改变对创伤事件的解读方式。宽恕是为了自己的心理健康，而不是为了伤害你的人。",
+      "reach_model": {
+        "R": "回忆（Recall）——客观回忆伤害事件，不逃避",
+        "E": "共情（Empathize）——尝试理解对方当时的处境",
+        "A": "利他（Altruistic Gift）——将宽恕视为给对方的礼物",
+        "C": "承诺（Commit）——公开承诺你选择宽恕",
+        "H": "坚持（Hold On）——在怨恨重来时提醒自己已做出选择"
+      },
+      "key_principles": [
+        "宽恕是一个过程，不是一次性的决定",
+        "宽恕不等于和解——你可以宽恕但保持距离",
+        "未宽恕的怨恨持续消耗心理资源"
+      ],
+      "practices": [
+        "写一封宽恕信（不一定要寄出）",
+        "用日记记录宽恕过程中的感受变化",
+        "尝试从对方的角度重新叙述事件"
+      ],
+      "research": "宽恕能降低心血管疾病风险，提升生活满意度，改善人际关系"
+    },
+    "hedonic_adaptation": {
+      "title": "享乐适应与幸福的跑步机",
+      "title_en": "Hedonic Adaptation & the Happiness Treadmill",
+      "plain_explanation": "人类会快速适应积极的变化——中了彩票的兴奋感很快就消退了。这就像一台跑步机：不管你跑多快，还是在原地。但好消息是，适应也有规律可循，我们可以用策略来对抗它。",
+      "key_principles": [
+        "积极事件的幸福感会随时间衰减回基线水平",
+        "但极端负面事件（如丧子）的适应不完全——不是所有事都会'过去'",
+        "金钱在满足基本需求后对幸福感的影响急剧递减",
+        "适应的速度因事件类型而异——物质变化适应快，人际关系变化适应慢"
+      ],
+      "counter_strategies": [
+        "分散享受——不要集中享受同一种快乐",
+        "制造新奇感——为日常活动加入变化",
+        "有意识地品味——通过正念对抗自动化适应",
+        "多投资体验而非物质——体验的适应更慢"
+      ],
+      "practice": "记录一周内让你开心的事物，注意哪些已经'习惯了'不再让你兴奋，然后用新的方式重新体验它们"
+    },
+    "positive_emotion_longevity": {
+      "title": "积极情绪与寿命",
+      "title_en": "Positive Emotions and Longevity (The Nun Study)",
+      "plain_explanation": "修女研究是积极心理学中最著名的纵向研究之一：在早年自传中表达更多积极情绪的修女，平均多活了10年。这证明积极情绪不仅让人感觉好，还有实际的健康效益。",
+      "key_findings": [
+        "90%有幸福感的修女活过85岁，vs 仅34%无幸福感的修女",
+        "毕业照上展示杜乡微笑（真诚微笑）的女性婚姻更幸福",
+        "积极情绪增强免疫系统、降低血压、提升决策能力",
+        "幸福感的人更利他——更愿意捐款和帮助陌生人"
+      ],
+      "duchenne_smile": "杜乡微笑是发自内心的微笑，嘴角上扬的同时眼角出现鱼尾纹，这种微笑很难伪装",
+      "practice": "每天有意识地表达积极情绪；记录生活中值得微笑的时刻；主动与他人分享喜悦"
+    },
+    "social_capital_happiness": {
+      "title": "社交资本与幸福",
+      "title_en": "Social Capital and Happiness",
+      "plain_explanation": "研究发现最幸福的人有一个共同特征：丰富的社交生活和亲密关系。幸福和社交形成正反馈循环——幸福的人更受欢迎，更好的人际关系又进一步增加幸福感。",
+      "key_findings": [
+        "40%已婚者说'非常幸福'，vs 24%未婚者",
+        "最幸福的人独处时间最少，社交时间最多",
+        "社交关系质量比数量更重要",
+        "利他行为本身就能提升幸福感"
+      ],
+      "key_principles": [
+        "人际关系是幸福最强的预测因子之一",
+        "投入深度关系比追求广泛社交更有效",
+        "主动表达关心和感激能加强关系纽带"
+      ],
+      "practices": [
+        "每周至少安排一次深度的面对面社交",
+        "定期向重要的人表达感激",
+        "参与志愿服务或团体活动",
+        "在关系中主动回应对方的好消息（积极-建设性回应）"
+      ]
+    },
+    "workplace_happiness": {
+      "title": "工作中的幸福——工作、职业与使命",
+      "title_en": "Happiness at Work: Job, Career, and Calling",
+      "plain_explanation": "人对工作有三种态度：当成谋生的工作、当成追求晋升的职业、当成人生使命的天职。将工作视为天职的人最幸福——无论他们是清洁工还是CEO。",
+      "three_orientations": [
+        {"type": "工作（Job）", "motivation": "薪水和物质报酬", "attitude": "为了钱工作，盼着下班和周末"},
+        {"type": "职业（Career）", "motivation": "晋升和社会地位", "attitude": "追求权力和成就，关注职业阶梯"},
+        {"type": "天职（Calling）", "motivation": "工作本身的意义和价值", "attitude": "工作即生活的重要部分，即使不需要也会做"}
+      ],
+      "key_principles": [
+        "天职感不取决于职业类型——任何工作都可以成为天职",
+        "在工作中运用标志优势能提升天职感",
+        "心流体验在天职导向的人中最常出现"
+      ],
+      "practice": "思考你现在的工作更像工作、职业还是天职。尝试在日常工作中发现和发挥你的标志优势，把更多工作时间花在让你进入心流的任务上"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "SWLS",
+  "full_name": "Satisfaction with Life Scale",
+  "description": "生活满意度量表",
+  "instruction": "以下是关于你对生活整体满意程度的5个陈述，请根据你的实际感受进行评分。",
+  "items": [
+    {"id": 1, "text": "在大多数方面，我的生活接近我的理想"},
+    {"id": 2, "text": "我的生活条件非常好"},
+    {"id": 3, "text": "我对我的生活感到满意"},
+    {"id": 4, "text": "到目前为止，我已经得到了生活中我想要的重要东西"},
+    {"id": 5, "text": "如果能重新来过，我几乎不会改变什么"}
+  ],
+  "options": [
+    {"value": 1, "label": "非常不同意"},
+    {"value": 2, "label": "不同意"},
+    {"value": 3, "label": "有点不同意"},
+    {"value": 4, "label": "既不同意也不反对"},
+    {"value": 5, "label": "有点同意"},
+    {"value": 6, "label": "同意"},
+    {"value": 7, "label": "非常同意"}
+  ],
+  "scoring": {
+    "ranges": [
+      {"min": 5,  "max": 9,  "category": "extremely_dissatisfied", "label": "极度不满意"},
+      {"min": 10, "max": 14, "category": "dissatisfied",           "label": "不满意"},
+      {"min": 15, "max": 19, "category": "slightly_dissatisfied",  "label": "略微不满意"},
+      {"min": 20, "max": 20, "category": "neutral",                "label": "中性"},
+      {"min": 21, "max": 25, "category": "slightly_satisfied",     "label": "略微满意"},
+      {"min": 26, "max": 30, "category": "satisfied",              "label": "满意"},
+      {"min": 31, "max": 35, "category": "extremely_satisfied",    "label": "非常满意"}
+    ],
+    "total_min": 5,
+    "total_max": 35
+  },
+  "clinical_notes": [
+    "SWLS由Ed Diener教授于1985年开发，是最广泛使用的生活满意度测量工具",
+    "该量表测量的是整体认知性生活满意度判断，而非情感成分",
+    "20分为中性点，低于20分表示对生活不满意",
+    "本量表不作为临床诊断工具，仅用于辅助了解用户的主观幸福感"
+  ]
+}

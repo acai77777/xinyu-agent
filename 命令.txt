@@ -1,0 +1,89 @@
+/model 选模型
+/init 可以生成CLAUDE 文档 （记忆）
+/context 查看当下文长度 （专注度）
+/compact 压缩上下文（新开窗口 ）
+/plan 计划
+/resume 恢复会话
+https://skills.sh/
+claude --dangerously-skip-permissions
+vibe codeing
+/plugin install figma@claude-plugin-desktop
+generate_figma_design
+Claude Code之父：先别急着写代码
+Claude Code之父Boris写了篇博客讲自己怎么用Claude Code，核心就一句话：在你审完计划之前，绝对不让Claude写一行代码。
+
+他的工作流分三步：
+	
+第一步Research：让Claude深挖代码库，把发现写进research.md。关键是你要先看完研究结果再往下走，不然Claude会在错误的理解上越跑越远。
+	
+第二步Planning：让Claude出plan.md，包含代码片段、文件路径、权衡取舍。他不用Claude Code自带的plan mode，而是用自定义markdown文件——因为这样他能完全控制内容。
+	
+第三步是最精髓的——Annotation Cycle。他直接在plan.md里加批注：纠正假设、否决方案、补充约束条件。don't implement yet。这个循环要走1-6轮，直到计划完全没问题才放手。
+	、
+放手的时候就一句话："implement it all, mark completed, don't stop"。然后Claude就按计划一路执行。
+	
+执行中的反馈尽量短，指向已有代码："这里参考users表的写法"。方向错了就revert重来，不打补丁。
+## 七、测试策略
+
+安全模块的测试是最高优先级——必须在任何其他功能之前通过。
+
+```python
+# tests/test_safety.py（示例）
+
+def test_critical_risk_detection():
+    """紧急风险必须100%检出"""
+    critical_texts = [
+        "我不想活了",
+        "我想结束生命",
+        "我准备跳楼",
+    ]
+    for text in critical_texts:
+        result = detect_crisis(text)
+        assert result.level == RiskLevel.CRITICAL, f"未检出紧急风险: {text}"
+
+def test_low_risk_no_false_positive():
+    """正常对话不应误报"""
+    normal_texts = [
+        "今天工作有点累",
+        "和朋友吵了一架",
+        "考试没考好，有点失落",
+    ]
+    for text in normal_texts:
+        result = detect_crisis(text)
+        assert result.level == RiskLevel.LOW, f"误报: {text}"
+
+def test_distortion_detection_accuracy():
+    """认知扭曲检测的基本准确性"""
+    test_cases = [
+        ("我永远都做不好任何事", "全或无思维"),
+        ("他肯定觉得我很蠢", "读心术"),
+        ("这次面试肯定会搞砸", "预言家谬误"),
+    ]
+    for text, expected in test_cases:
+        results = detect_distortion(text)
+        detected_types = [r.distortion_type for r in results]
+        assert expected in detected_types, f"未检出 {expected}: {text}"
+```
+
+### 边缘案例清单
+
+| 场景 | 预期行为 | 测试覆盖 |
+|------|----------|----------|
+| 用户用隐晦方式表达自杀意念（如"我想永远睡过去"） | 语义分类识别为HIGH+风险 | test_subtle_crisis |
+| 用户讨论他人的自杀（如"我朋友说想自杀"） | 语义分类标记is_first_person=false，提供资源但不误判为用户本人危机 | test_third_party_crisis |
+| 用户引用影视作品（如"电影里那个人跳楼了"） | 关键词命中但语义降级为MEDIUM，不强制中断对话 | test_media_reference |
+| 用户在积极语境中使用负面关键词（如"我总是很开心"） | 不误报为认知扭曲 | test_positive_context |
+| 用户快速切换情绪（上一句开心，下一句崩溃） | 以最新状态为准，但记录波动 | test_emotion_shift |
+| 用户拒绝Agent的干预建议（如"别跟我说这些"） | 立即停止当前策略，回到倾听模式（批注5） | test_user_autonomy |
+| 用户对Agent表达不满（如"你根本不懂我"） | 触发联盟修复：道歉+调整策略（批注5） | test_alliance_rupture |
+| 用户要求删除自己的记忆数据 | 执行删除并确认（批注4） | test_memory_deletion |
+| 用户在哭诉中，Agent不应主动启动练习 | 后台评估仅供参考，LLM优先共情倾听（批注2） | test_no_premature_intervention |
+| 超长文本输入（>2000字） | 正常处理，不截断关键信息 | test_long_input |
+| 用户使用方言或网络用语表达情绪 | 尽可能识别，降级为"需要澄清" | test_informal_language |
+| 用户告别行为暗示（如"把猫托付给邻居了"） | 语义分类识别为HIGH风险 | test_farewell_behavior |
+| 语音消息中用户在哭泣（Whisper 置信度低） | 附加情绪线索提示主模型，加强共情 | test_voice_crying |
+| 语音转写失败或结果为空 | 友好提示"没听清，能再说一次吗"，不崩溃 | test_stt_failure |
+| 用户发送无关图片（如风景照、表情包） | 正常描述，不强行做情绪分析 | test_irrelevant_image |
+| 用户发送含敏感内容的图片（自伤照片） | 触发安全守护，提供危机资源 | test_sensitive_image |
+| WebSocket 断线重连后消息丢失 | 重连后从服务端恢复最近对话历史 | test_ws_reconnect |
+| TTS 服务不可用（OpenAI + Edge 都失败） | 降级为纯文字回复，不阻塞对话 | test_tts_fallback |
