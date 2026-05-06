@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>心语 XinYu — GitHub Social Preview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
+  /* Fallback system fonts if web fonts fail */
+  .font-loaded & { }
+</style>
+<style>
+  :root {
+    --bg-deep: #0d0f1a;
+    --bg-mid: #151829;
+    --accent-amber: #e8b86d;
+    --accent-rose: #d4856b;
+    --accent-teal: #6ba5a0;
+    --text-primary: #f0ebe3;
+    --text-secondary: #b8b0a6;
+    --text-muted: #7a756e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1280px;
+    height: 640px;
+    overflow: hidden;
+    background: var(--bg-deep);
+    font-family: 'DM Sans', 'Noto Serif SC', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Background atmosphere */
+  .bg-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .bg-orb-1 {
+    position: absolute;
+    width: 620px;
+    height: 620px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(212,133,107,0.13) 0%, transparent 70%);
+    top: -180px;
+    right: -120px;
+  }
+
+  .bg-orb-2 {
+    position: absolute;
+    width: 520px;
+    height: 520px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(107,165,160,0.10) 0%, transparent 70%);
+    bottom: -160px;
+    left: -80px;
+  }
+
+  .bg-orb-3 {
+    position: absolute;
+    width: 340px;
+    height: 340px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(232,184,109,0.08) 0%, transparent 70%);
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Subtle grid texture */
+  .grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Decorative ring */
+  .deco-ring {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 1px solid rgba(232,184,109,0.12);
+    right: 100px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .deco-ring::after {
+    content: '';
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    border: 1px solid rgba(232,184,109,0.08);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  /* Mandala petals */
+  .mandala {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    right: 100px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .petal {
+    position: absolute;
+    width: 3px;
+    height: 70px;
+    background: linear-gradient(to bottom, rgba(232,184,109,0), rgba(232,184,109,0.25), rgba(232,184,109,0));
+    border-radius: 50%;
+    left: 50%;
+    top: 30px;
+    transform-origin: bottom center;
+  }
+
+  .petal:nth-child(1)  { transform: rotate(0deg); }
+  .petal:nth-child(2)  { transform: rotate(30deg); }
+  .petal:nth-child(3)  { transform: rotate(60deg); }
+  .petal:nth-child(4)  { transform: rotate(90deg); }
+  .petal:nth-child(5)  { transform: rotate(120deg); }
+  .petal:nth-child(6)  { transform: rotate(150deg); }
+  .petal:nth-child(7)  { transform: rotate(180deg); }
+  .petal:nth-child(8)  { transform: rotate(210deg); }
+  .petal:nth-child(9)  { transform: rotate(240deg); }
+  .petal:nth-child(10) { transform: rotate(270deg); }
+  .petal:nth-child(11) { transform: rotate(300deg); }
+  .petal:nth-child(12) { transform: rotate(330deg); }
+
+  .petal:nth-child(1)  { animation: breathe 4s ease-in-out 0.0s infinite; }
+  .petal:nth-child(2)  { animation: breathe 4s ease-in-out 0.3s infinite; }
+  .petal:nth-child(3)  { animation: breathe 4s ease-in-out 0.6s infinite; }
+  .petal:nth-child(4)  { animation: breathe 4s ease-in-out 0.9s infinite; }
+  .petal:nth-child(5)  { animation: breathe 4s ease-in-out 1.2s infinite; }
+  .petal:nth-child(6)  { animation: breathe 4s ease-in-out 1.5s infinite; }
+  .petal:nth-child(7)  { animation: breathe 4s ease-in-out 1.8s infinite; }
+  .petal:nth-child(8)  { animation: breathe 4s ease-in-out 2.1s infinite; }
+  .petal:nth-child(9)  { animation: breathe 4s ease-in-out 2.4s infinite; }
+  .petal:nth-child(10) { animation: breathe 4s ease-in-out 2.7s infinite; }
+  .petal:nth-child(11) { animation: breathe 4s ease-in-out 3.0s infinite; }
+  .petal:nth-child(12) { animation: breathe 4s ease-in-out 3.3s infinite; }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.45; }
+  }
+
+  .center-dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: rgba(232,184,109,0.5);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 20px rgba(232,184,109,0.3);
+  }
+
+  /* Main content */
+  .main-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0 100px 0 110px;
+    width: 100%;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(232,184,109,0.2);
+    background: rgba(232,184,109,0.06);
+    margin-bottom: 36px;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-amber);
+  }
+
+  .badge-text {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent-amber);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .title-group {
+    margin-bottom: 24px;
+  }
+
+  .title-chinese {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 96px;
+    font-weight: 900;
+    color: var(--text-primary);
+    line-height: 1.1;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+
+  .title-accent {
+    color: var(--accent-amber);
+  }
+
+  .title-english {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    letter-spacing: 0.06em;
+    margin-bottom: 28px;
+  }
+
+  .divider {
+    width: 48px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-amber), transparent);
+    margin-bottom: 28px;
+  }
+
+  .subtitle {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--text-muted);
+    line-height: 1.9;
+    letter-spacing: 0.03em;
+  }
+
+  .subtitle-line {
+    display: block;
+  }
+
+  .subtitle-line:first-child {
+    color: var(--text-secondary);
+  }
+
+  /* Bottom tag */
+  .bottom-tag {
+    position: absolute;
+    bottom: 32px;
+    left: 110px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: var(--text-muted);
+    letter-spacing: 0.06em;
+  }
+
+  /* Corner accent */
+  .corner-accent {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232,184,109,0.15));
+  }
+
+  .corner-accent-2 {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 140px;
+    background: linear-gradient(180deg, rgba(232,184,109,0.15), transparent);
+  }
+</style>
+</head>
+<body>
+  <div class="bg-layer">
+    <div class="bg-orb-1"></div>
+    <div class="bg-orb-2"></div>
+    <div class="bg-orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <div class="deco-ring"></div>
+  <div class="mandala">
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="petal"></div><div class="petal"></div><div class="petal"></div>
+    <div class="center-dot"></div>
+  </div>
+
+  <div class="corner-accent"></div>
+  <div class="corner-accent-2"></div>
+
+  <div class="main-content">
+    <div class="badge">
+      <div class="badge-dot"></div>
+      <span class="badge-text">Open Source</span>
+    </div>
+    <div class="title-group">
+      <h1 class="title-chinese">
+        <span class="title-accent">心</span>语
+      </h1>
+      <p class="title-english">XinYu · AI Mental Health Companion</p>
+    </div>
+    <div class="divider"></div>
+    <p class="subtitle">
+      <span class="subtitle-line">24/7 AI 心理咨询助手</span>
+      <span class="subtitle-line">融合认知行为疗法（CBT）与积极心理学</span>
+    </p>
+  </div>
+
+  <span class="bottom-tag">github.com/acai77777/xinyu-agent</span>
+</body>
+</html>
