@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme-academic.css">
+<style>
+.eyebrow {
+  position: absolute; top: 130px; left: 80px;
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px; font-style: italic; color: var(--academic-red);
+  letter-spacing: 0.1em;
+}
+.eyebrow::before { content: '§ '; }
+
+.section-title {
+  position: absolute; top: 180px; left: 80px; right: 80px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 48px; font-weight: 900;
+  color: var(--ink-dark); line-height: 1.3;
+}
+.section-title em {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic; color: var(--academic-gold);
+}
+
+.subtitle {
+  position: absolute; top: 320px; left: 80px; right: 80px;
+  font-family: 'Crimson Pro', 'Noto Serif SC', serif;
+  font-size: 22px; font-style: italic;
+  color: var(--ink-mid); line-height: 1.6;
+}
+.subtitle strong { color: var(--ink-dark); font-style: normal; font-weight: 700; }
+
+/* 普通 LLM 流程 */
+.flow-section {
+  position: absolute; left: 80px; right: 80px;
+}
+.flow-section.naive { top: 440px; }
+.flow-section.layered { top: 760px; }
+
+.flow-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; color: var(--ink-mid);
+  letter-spacing: 0.15em; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.flow-label.bad { color: var(--soft-warning); }
+.flow-label.good { color: var(--academic-red); }
+
+.flow-row {
+  display: flex; align-items: center; gap: 12px;
+}
+
+.flow-node {
+  flex: 1;
+  background: white;
+  border: 1.5px solid var(--ink-dark);
+  padding: 18px 14px;
+  text-align: center;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 19px; font-weight: 600;
+  color: var(--ink-dark);
+  position: relative;
+}
+
+.flow-node.layer {
+  background: var(--academic-gold-light);
+  border-color: var(--academic-red);
+  border-width: 2px;
+}
+.flow-node.llm {
+  background: var(--ink-dark);
+  color: var(--paper-bg);
+}
+.flow-node small {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-light);
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+}
+.flow-node.llm small { color: var(--academic-gold-light); }
+.flow-node.layer small { color: var(--ink-soft); }
+
+.flow-arrow {
+  font-family: 'Crimson Pro', serif;
+  font-size: 28px;
+  color: var(--ink-mid);
+  font-weight: 600;
+}
+
+.naive-result {
+  margin-top: 14px;
+  font-family: 'Caveat', cursive;
+  font-size: 24px;
+  color: var(--soft-warning);
+  font-weight: 700;
+}
+
+.divider-text {
+  position: absolute;
+  top: 670px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Crimson Pro', serif;
+  font-size: 22px; font-style: italic;
+  color: var(--academic-red);
+  background: var(--paper-bg);
+  padding: 0 24px;
+  z-index: 11;
+}
+.divider-line {
+  position: absolute;
+  top: 690px; left: 80px; right: 80px;
+  height: 1.5px;
+  background: var(--paper-line);
+  border-top: 1px dashed var(--ink-light);
+  z-index: 10;
+}
+
+.key-insight {
+  position: absolute;
+  bottom: 130px; left: 80px; right: 80px;
+  background: var(--paper-bg-dark);
+  border: 2px solid var(--ink-dark);
+  padding: 22px 32px;
+  text-align: center;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 26px; font-weight: 700;
+  color: var(--ink-dark);
+  letter-spacing: 0.04em;
+  transform: rotate(-0.4deg);
+}
+.key-insight em {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic;
+  color: var(--academic-red);
+}
+.key-insight .underline {
+  background: var(--highlight-yellow);
+  padding: 0 4px;
+}
+
+.handwrite-note {
+  position: absolute;
+  font-family: 'Caveat', cursive;
+  font-size: 24px;
+  color: var(--soft-warning);
+  font-weight: 700;
+  z-index: 12;
+}
+</style></head>
+<body>
+<div class="fold-corner-tl"></div>
+<div class="stain" style="width: 130px; height: 140px; bottom: 250px; right: 50px; opacity: 0.1;"></div>
+
+<div class="journal-bar">
+  <div class="journal-name"><em>NATURE MEDICINE</em> · ARTICLE</div>
+  <div class="journal-meta">04 / 06 · METHODS</div>
+</div>
+
+<div class="content-layer">
+  <div class="eyebrow">关 键 idea</div>
+  <div class="section-title">不是模型变强了<br>是<em>架构</em>在起作用</div>
+
+  <div class="subtitle">
+    研究者用 GPT-4 / Claude / Gemini / Llama 3 全跑了一遍 ——<br>
+    <strong>结果差异不在模型 · 而在外面包的"认知层"</strong>
+  </div>
+
+  <div class="flow-section naive">
+    <div class="flow-label bad">— METHOD A · 普通方案 (BASELINE)</div>
+    <div class="flow-row">
+      <div class="flow-node">用户输入<small>USER MSG</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node llm">LLM<small>RAW MODEL</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">回复<small>OUTPUT</small></div>
+    </div>
+    <div class="naive-result">→ 临床合理性低、缺结构、有伤害风险</div>
+  </div>
+
+  <div class="divider-line"></div>
+  <div class="divider-text">cognitive layer architecture</div>
+
+  <div class="flow-section layered">
+    <div class="flow-label good">— METHOD B · 认知层方案 (PROPOSED)</div>
+    <div class="flow-row">
+      <div class="flow-node">用户输入</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node layer">输入分类层<small>RISK CLASSIFY</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node llm">LLM</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node layer">输出审核层<small>CLINICAL CHECK</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">回复</div>
+    </div>
+  </div>
+
+  <div class="key-insight">
+    <em>Architecture</em> &gt; <span class="underline">Model</span><br>
+    <span style="font-size: 18px; font-weight: 400; font-style: italic; color: var(--ink-mid);">
+      ↑ 真正起作用的是这一层 · 与 LLM 选型无关
+    </span>
+  </div>
+
+  <div class="handwrite-note" style="top: 800px; right: 30px; transform: rotate(-10deg);">
+    ★ 重点!<br>记下来
+  </div>
+</div>
+
+<div class="noise-overlay"></div>
+
+<div class="bottom-footer">
+  <span>FIG. METHOD COMPARISON</span>
+  <span>n.b. tested on GPT-4 / Claude / Gemini / Llama 3</span>
+</div>
+</body></html>

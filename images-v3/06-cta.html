@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><link rel="stylesheet" href="theme-academic.css">
+<style>
+.eyebrow {
+  position: absolute; top: 130px; left: 80px;
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px; font-style: italic; color: var(--academic-red);
+  letter-spacing: 0.1em;
+}
+.eyebrow::before { content: '§ '; }
+
+.section-title {
+  position: absolute; top: 200px; left: 80px; right: 80px;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 60px; font-weight: 900;
+  color: var(--ink-dark); line-height: 1.25;
+}
+.section-title em {
+  font-family: 'Crimson Pro', serif;
+  font-style: italic; color: var(--academic-gold);
+}
+.section-title .hl {
+  background: var(--highlight-yellow);
+  padding: 0 6px;
+}
+
+.tagline {
+  position: absolute; top: 410px; left: 80px; right: 80px;
+  font-family: 'Crimson Pro', 'Noto Serif SC', serif;
+  font-size: 24px; font-style: italic;
+  color: var(--ink-mid); line-height: 1.7;
+}
+
+.links-block {
+  position: absolute;
+  top: 540px; left: 80px; right: 80px;
+  display: flex; flex-direction: column; gap: 24px;
+}
+
+.link-card {
+  background: white;
+  border: 1.5px solid var(--ink-dark);
+  padding: 26px 32px;
+  position: relative;
+}
+.link-card.tilt-1 { transform: rotate(-0.5deg); box-shadow: 4px 5px 0 var(--academic-gold-light); }
+.link-card.tilt-2 { transform: rotate(0.4deg); box-shadow: -4px 5px 0 rgba(184,75,58,0.25); }
+
+.link-tag {
+  position: absolute;
+  top: -14px; left: 24px;
+  background: var(--ink-dark);
+  color: var(--paper-bg);
+  padding: 5px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  font-weight: 700;
+}
+.link-card.paper .link-tag { background: var(--academic-red); }
+
+.link-label {
+  font-family: 'Crimson Pro', serif;
+  font-size: 16px; font-style: italic;
+  color: var(--academic-red);
+  margin-bottom: 8px;
+}
+.link-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 28px; font-weight: 700;
+  color: var(--ink-dark);
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+.link-url {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 18px; color: var(--academic-gold);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.link-desc {
+  font-size: 16px; color: var(--ink-mid);
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+.warning-block {
+  position: absolute;
+  bottom: 140px; left: 80px; right: 80px;
+  background: var(--paper-bg-dark);
+  border: 1.5px dashed var(--academic-red);
+  padding: 18px 26px;
+  text-align: center;
+}
+.warning-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 17px; color: var(--ink-dark);
+  line-height: 1.6;
+}
+.warning-text strong { color: var(--academic-red); font-weight: 700; }
+.warning-text .hotline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 19px; font-weight: 700;
+  color: var(--academic-red);
+  letter-spacing: 0.05em;
+}
+
+.handwrite-end {
+  position: absolute;
+  font-family: 'Caveat', cursive;
+  font-size: 36px;
+  color: var(--soft-warning);
+  font-weight: 700;
+  z-index: 12;
+}
+
+.stamp-end {
+  position: absolute;
+  border: 2.5px solid var(--academic-red);
+  color: var(--academic-red);
+  padding: 16px 22px;
+  font-family: 'Crimson Pro', serif;
+  font-size: 18px; font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+  z-index: 12;
+  background: rgba(245, 241, 232, 0.85);
+  text-align: center;
+  line-height: 1.2;
+}
+</style></head>
+<body>
+<div class="fold-corner-tl"></div>
+<div class="fold-corner-br"></div>
+<div class="stain" style="width: 200px; height: 220px; top: 50px; right: 40px; opacity: 0.08;"></div>
+
+<div class="journal-bar">
+  <div class="journal-name"><em>NATURE MEDICINE</em> · END</div>
+  <div class="journal-meta">06 / 06 · LINKS</div>
+</div>
+
+<div class="content-layer">
+  <div class="eyebrow">看 完 想 试 试 ?</div>
+  <div class="section-title">
+    论文 + 代码<br>
+    <span class="hl">都给你</span> <em>留 好 了</em>
+  </div>
+
+  <div class="tagline">
+    自己读论文 → 自己看实现 → 自己跑起来<br>
+    这才是<strong style="color: var(--ink-dark); font-style: normal;">"开源"</strong>这两个字真正的意义。
+  </div>
+
+  <div class="links-block">
+    <div class="link-card paper tilt-1">
+      <div class="link-tag">📄 PAPER</div>
+      <div class="link-label">— 原 论 文 (Open Access 摘要)</div>
+      <div class="link-title">Nature Medicine · Mar 2026</div>
+      <div class="link-url">nature.com/articles/s41591-026-04278-w</div>
+      <div class="link-desc">"A cognitive layer architecture..."</div>
+    </div>
+
+    <div class="link-card tilt-2">
+      <div class="link-tag">⌘ CODE</div>
+      <div class="link-label">— 中 文 开 源 实 现 (MIT License)</div>
+      <div class="link-title">心 语 XinYu · GitHub</div>
+      <div class="link-url">github.com/acai77777/xinyu-agent</div>
+      <div class="link-desc">完整后端 + 前端 + Docker 一键部署</div>
+    </div>
+  </div>
+
+  <div class="warning-block">
+    <div class="warning-text">
+      <strong>⚠ 诚实声明</strong> · AI 不能替代严重精神障碍的专业治疗<br>
+      危机时请拨打全国心理援助热线 <span class="hotline">400-161-9995</span>
+    </div>
+  </div>
+
+  <div class="handwrite-end" style="top: 1000px; right: 60px; transform: rotate(-8deg);">
+    Stay safe ♡
+  </div>
+
+  <div class="stamp-end" style="top: 240px; right: 50px;">
+    ARCHIVED<br>
+    2026.05
+  </div>
+</div>
+
+<div class="noise-overlay"></div>
+
+<div class="bottom-footer">
+  <span>END OF NOTES · 06 / 06</span>
+  <span>谢 谢 你 看 到 这 里</span>
+</div>
+</body></html>
