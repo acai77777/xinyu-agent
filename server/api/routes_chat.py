@@ -221,6 +221,9 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             msg_type = msg.get("type", "text")
             multimodal_context = []
 
+            sid8 = (session_id or "anon")[:8]
+            logger.info(f"[WS] {sid8} recv type={msg_type} len={len(user_text)}")
+
             if msg_type == "voice":
                 audio_url = msg.get("metadata", {}).get("audio_url", "")
                 if audio_url:
@@ -275,7 +278,10 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     stream_cb=stream_cb,
                 )
             except Exception as e:
-                print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)
+                logger.error(
+                    f"[Agent] {sid8} run_agent failed: {type(e).__name__}: {e}",
+                    exc_info=True,
+                )
                 response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "raw_text": "", "emotion": None}
 
             # 更新内存中的对话历史
@@ -363,11 +369,18 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 reply["crisis_holding"] = True
 
             await manager.send_json(session_id, reply)
+            logger.info(
+                f"[WS] {sid8} reply sent type={reply['type']} "
+                f"len={len(reply.get('content', ''))}"
+            )
 
     except WebSocketDisconnect:
         manager.disconnect(session_id)
     except Exception as e:
-        print(f"[WS Error] {type(e).__name__}: {e}", flush=True)
+        logger.error(
+            f"[WS] {(session_id or 'anon')[:8]} error: {type(e).__name__}: {e}",
+            exc_info=True,
+        )
         manager.disconnect(session_id)
 
 

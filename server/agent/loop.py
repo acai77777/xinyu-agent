@@ -425,6 +425,9 @@ async def run_agent(
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
+    sid8 = (session_id or "anon")[:8]
+    logger.info(f"[Agent] {sid8} run_agent start text_len={len(user_message or '')}")
+
     # === 启动 detect_crisis 异步任务（与后续 IO 并行）===
     crisis_task = asyncio.create_task(detect_crisis(user_message))
 
@@ -588,7 +591,9 @@ async def run_agent(
     active_tools = [] if crisis_holding.active else tools
 
     # === Agent 循环 ===
+    iters = 0
     while True:
+        iters += 1
         result = await _llm_chat(
             system=context_enriched_prompt,
             messages=messages,
@@ -623,6 +628,11 @@ async def run_agent(
                         bg_emotion = analysis.get("emotion")
                 except Exception:
                     pass
+
+            logger.info(
+                f"[Agent] {sid8} run_agent done stop=end_turn iters={iters} "
+                f"text_len={len(final_text)} crisis={crisis_holding.active}"
+            )
 
             return {
                 "text": final_text,

@@ -5,6 +5,8 @@ Agent 循环测试——test_agent_loop.py
 """
 import pytest
 import json
+import logging
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from agent.tools import TOOLS, execute_tool
@@ -16,7 +18,9 @@ from agent.loop import (
     _meta_monitor,
     _rule_based_fix,
     _messages_to_openai_format,
+    run_agent,
 )
+from safety.crisis_detector import RiskAssessment, RiskLevel
 
 
 # =====================================================================
@@ -459,3 +463,150 @@ class TestReasoningContentRoundtrip:
         assert len(assistant_msgs) == 2
         assert assistant_msgs[0]["reasoning_content"] == "第一轮思考"
         assert assistant_msgs[1]["reasoning_content"] == "第二轮思考"
+
+
+# =====================================================================
+# 8. run_agent 关键运行日志
+# 目的：清调试 PERF 后，至少保留入口/出口可见性。一旦出问题（如前端没收到回复），
+#      能通过日志立即看出"agent 工作正常 vs 卡在某轮工具循环"，避免再次失明。
+# =====================================================================
+
+def _low_risk_assessment() -> RiskAssessment:
+    return RiskAssessment(
+        level=RiskLevel.LOW,
+        matched_keywords=[],
+        semantic_confirmed=False,
+        recommended_action="normal_conversation",
+    )
+
+
+def _fake_end_turn_result(text: str = "测试回复"):
+    """模拟 _llm_chat 返回 end_turn（无工具）"""
+    return {
+        "text": text,
+        "tool_calls": [],
+        "stop_reason": "end_turn",
+        "raw": SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(
+                content=text, tool_calls=None, reasoning_content=None,
+            ))]
+        ),
+    }
+
+
+def _fake_tool_use_result(tool_name: str = "assess_emotion", tool_id: str = "call_1"):
+    """模拟 _llm_chat 返回 tool_use（deepseek raw 结构）"""
+    fake_tc = SimpleNamespace(
+        id=tool_id,
+        type="function",
+        function=SimpleNamespace(name=tool_name, arguments='{"text":"测试"}'),
+    )
+    return {
+        "text": "",
+        "tool_calls": [{"id": tool_id, "name": tool_name, "input": {"text": "测试"}}],
+        "stop_reason": "tool_use",
+        "raw": SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(
+                content="", tool_calls=[fake_tc], reasoning_content=None,
+            ))]
+        ),
+    }
+
+
+class TestRunAgentLogs:
+    """
+    验证 run_agent 入口/出口日志可见性。
+    背景：前次"前端没收到回复"事故，因为清了所有 print 后 run_agent 内部 90 秒静默，
+         一度以为是死锁（实际处理 5-7 秒）。这些日志是排障下限。
+    """
+
+    @pytest.mark.asyncio
+    async def test_run_agent_logs_start_and_done(self, caplog):
+        """单轮 end_turn：应打 start 和 done(iters=1)"""
+        caplog.set_level(logging.INFO, logger="agent.loop")
+        with patch("agent.loop.detect_crisis", new=AsyncMock(return_value=_low_risk_assessment())), \
+             patch("context.sub_agents.SubAgentOrchestrator.dispatch", new=AsyncMock(return_value={})), \
+             patch("agent.loop._llm_chat", new=AsyncMock(return_value=_fake_end_turn_result("你好呀"))):
+            result = await run_agent(
+                user_message="测试消息",
+                conversation_history=[],
+                user_id="test-user-log-1",
+                session_id="sess-aaaaaaaa-1234-5678-90ab-cdef00000001",
+            )
+        assert result["text"] == "你好呀"
+        messages = [r.getMessage() for r in caplog.records]
+        start_logs = [m for m in messages if "[Agent]" in m and "run_agent start" in m]
+        done_logs = [m for m in messages if "[Agent]" in m and "run_agent done" in m]
+        assert len(start_logs) == 1, f"应有 1 条 start 日志，实际: {start_logs}"
+        assert len(done_logs) == 1, f"应有 1 条 done 日志，实际: {done_logs}"
+        assert "sess-aaa" in start_logs[0]
+        assert "text_len=4" in start_logs[0]  # "测试消息" 4 字符
+        assert "iters=1" in done_logs[0]
+        assert "stop=end_turn" in done_logs[0]
+        assert "crisis=False" in done_logs[0]
+
+    @pytest.mark.asyncio
+    async def test_run_agent_logs_iters_on_tool_call(self, caplog):
+        """tool_use 一轮 + end_turn 一轮：iters=2"""
+        caplog.set_level(logging.INFO, logger="agent.loop")
+        # 让 _llm_chat 第一次返 tool_use，第二次返 end_turn
+        side_effects = [
+            _fake_tool_use_result(),
+            _fake_end_turn_result("好的，已评估"),
+        ]
+        with patch("agent.loop.detect_crisis", new=AsyncMock(return_value=_low_risk_assessment())), \
+             patch("context.sub_agents.SubAgentOrchestrator.dispatch", new=AsyncMock(return_value={})), \
+             patch("agent.loop._llm_chat", new=AsyncMock(side_effect=side_effects)), \
+             patch("agent.loop.execute_tool", return_value='{"emotion":"calm"}'):
+            await run_agent(
+                user_message="评估我的情绪",
+                conversation_history=[],
+                user_id="test-user-log-2",
+                session_id="sess-bbbbbbbb-1234-5678-90ab-cdef00000002",
+            )
+        done_logs = [
+            r.getMessage() for r in caplog.records
+            if "[Agent]" in r.getMessage() and "run_agent done" in r.getMessage()
+        ]
+        assert len(done_logs) == 1
+        assert "iters=2" in done_logs[0], f"工具循环 2 轮，iters 应为 2: {done_logs[0]}"
+
+    @pytest.mark.asyncio
+    async def test_run_agent_logs_session_id_anon_when_none(self, caplog):
+        """session_id=None 时日志前缀应为 'anon' 而不是崩溃"""
+        caplog.set_level(logging.INFO, logger="agent.loop")
+        with patch("agent.loop.detect_crisis", new=AsyncMock(return_value=_low_risk_assessment())), \
+             patch("context.sub_agents.SubAgentOrchestrator.dispatch", new=AsyncMock(return_value={})), \
+             patch("agent.loop._llm_chat", new=AsyncMock(return_value=_fake_end_turn_result("ok"))):
+            await run_agent(
+                user_message="hi",
+                conversation_history=[],
+                user_id="test-user-log-3",
+                session_id=None,
+            )
+        start_logs = [
+            r.getMessage() for r in caplog.records
+            if "[Agent]" in r.getMessage() and "run_agent start" in r.getMessage()
+        ]
+        assert len(start_logs) == 1
+        assert "[Agent] anon " in start_logs[0], f"session_id=None 应回退到 'anon': {start_logs[0]}"
+
+    @pytest.mark.asyncio
+    async def test_run_agent_logs_text_len_zero_safe(self, caplog):
+        """user_message='' 不应崩溃，text_len=0"""
+        caplog.set_level(logging.INFO, logger="agent.loop")
+        with patch("agent.loop.detect_crisis", new=AsyncMock(return_value=_low_risk_assessment())), \
+             patch("context.sub_agents.SubAgentOrchestrator.dispatch", new=AsyncMock(return_value={})), \
+             patch("agent.loop._llm_chat", new=AsyncMock(return_value=_fake_end_turn_result("空消息回复"))):
+            await run_agent(
+                user_message="",
+                conversation_history=[],
+                user_id="test-user-log-4",
+                session_id="sess-empty",
+            )
+        start_logs = [
+            r.getMessage() for r in caplog.records
+            if "[Agent]" in r.getMessage() and "run_agent start" in r.getMessage()
+        ]
+        assert len(start_logs) == 1
+        assert "text_len=0" in start_logs[0]
