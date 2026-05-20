@@ -21,7 +21,11 @@ class Settings(BaseSettings):
     main_model: str = "google/gemini-3.1-flash-lite-preview"
     light_model: str = "deepseek/deepseek-v3.2"
     deepseek_model: str = "deepseek-chat"
-    max_tokens: int = 2048
+    # 推理模型 max_tokens 分级（含推理 token 占用）
+    small_max_tokens: int = 1024    # 短判断/分类
+    medium_max_tokens: int = 2048   # 中等生成
+    large_max_tokens: int = 4096    # 长生成
+    main_max_tokens: int = 8192     # 主对话
     llm_timeout: int = 60  # LLM 调用超时秒数
 
     # 服务配置
@@ -58,7 +62,7 @@ class Settings(BaseSettings):
     # 对话压缩
     compress_threshold: int = 10        # 超过此轮数触发压缩
     compress_keep_recent: int = 6       # 保留最近 N 轮原始对话
-    sub_agent_timeout: int = 5          # 子 Agent 最大等待秒数
+    sub_agent_timeout: int = 15         # 子 Agent 最大等待秒数（推理模型单次 5-7s，留余量）
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

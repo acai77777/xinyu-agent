@@ -182,7 +182,7 @@ async def _semantic_classify(text: str) -> RiskAssessment:
         if _is_openai_compatible():
             response = await client.chat.completions.create(
                 model=model,
-                max_tokens=128,
+                max_tokens=settings.small_max_tokens,
                 messages=[
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
@@ -192,7 +192,7 @@ async def _semantic_classify(text: str) -> RiskAssessment:
         else:
             response = await client.messages.create(
                 model=model,
-                max_tokens=128,
+                max_tokens=settings.small_max_tokens,
                 system=system_msg,
                 messages=[{"role": "user", "content": user_content}],
             )

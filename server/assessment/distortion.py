@@ -210,8 +210,7 @@ def detect_distortion(user_text: str) -> list[DistortionResult]:
 
 def _llm_quick_screen(user_text: str) -> bool:
     """
-    极简 LLM 快筛：关键词未命中时兜底，
-    仅问"有没有认知扭曲"，max_tokens=8，成本极低。
+    极简 LLM 快筛：关键词未命中时兜底，仅问"有没有认知扭曲"。
     """
     from llm_client import get_sync_client, get_light_model, _is_openai_compatible
 
@@ -229,7 +228,7 @@ def _llm_quick_screen(user_text: str) -> bool:
         if _is_openai_compatible():
             response = client.chat.completions.create(
                 model=model,
-                max_tokens=8,
+                max_tokens=settings.small_max_tokens,
                 messages=[
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
@@ -239,7 +238,7 @@ def _llm_quick_screen(user_text: str) -> bool:
         else:
             response = client.messages.create(
                 model=model,
-                max_tokens=8,
+                max_tokens=settings.small_max_tokens,
                 system=system_msg,
                 messages=[{"role": "user", "content": user_content}],
             )
@@ -282,7 +281,7 @@ def _llm_confirm_distortions(
         if _is_openai_compatible():
             response = client.chat.completions.create(
                 model=model,
-                max_tokens=512,
+                max_tokens=settings.medium_max_tokens,
                 messages=[
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
@@ -292,7 +291,7 @@ def _llm_confirm_distortions(
         else:
             response = client.messages.create(
                 model=model,
-                max_tokens=512,
+                max_tokens=settings.medium_max_tokens,
                 system=system_msg,
                 messages=[{"role": "user", "content": user_content}],
             )
