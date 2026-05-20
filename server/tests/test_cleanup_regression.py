@@ -129,6 +129,7 @@ class TestWebSocketFlow:
         """WebSocket 连接后发消息，应收到 thinking + 回复"""
         mock_response = {
             "text": "你好，我是心语。",
+            "raw_text": "你好，我是心语。",
             "emotion": {"primary_emotion": "平静", "intensity": 3},
             "crisis_holding_active": False,
         }
@@ -143,7 +144,7 @@ class TestWebSocketFlow:
                     assert msg1["content"] == "thinking"
 
                     msg2 = ws.receive_json()
-                    assert msg2["type"] == "text"
+                    assert msg2["type"] == "text_done"
                     assert msg2["content"] == "你好，我是心语。"
 
     def test_agent_error_returns_fallback(self):
@@ -156,7 +157,8 @@ class TestWebSocketFlow:
 
                     ws.receive_json()  # thinking
                     reply = ws.receive_json()
-                    assert reply["type"] == "text"
+                    # fallback dict 没有 raw_text 字段 → 走 text_patch 分支
+                    assert reply["type"] == "text_patch"
                     assert "抱歉" in reply["content"]
 
 
