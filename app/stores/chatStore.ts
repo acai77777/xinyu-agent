@@ -11,6 +11,8 @@ interface ChatState {
 
   setSession: (sessionId: string) => void;
   addMessage: (message: Message) => void;
+  appendDeltaToLastAssistant: (delta: string) => void;
+  finalizeStreamingMessage: (finalContent: string | null, emotion?: string) => void;
   setThinking: (thinking: boolean) => void;
   setCrisisHolding: (active: boolean) => void;
   resetMessages: () => void;
@@ -58,6 +60,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messagesBySession: {
           ...state.messagesBySession,
           [sid]: [...current, message],
+        },
+      };
+    }),
+
+  appendDeltaToLastAssistant: (delta) =>
+    set((state) => {
+      const sid = state.currentSessionId;
+      if (!sid) return state;
+      const current = state.messagesBySession[sid] ?? [];
+      const last = current[current.length - 1];
+      if (last && last.role === 'assistant' && last.isStreaming) {
+        const updated: Message = { ...last, content: last.content + delta };
+        return {
+          messagesBySession: {
+            ...state.messagesBySession,
+            [sid]: [...current.slice(0, -1), updated],
+          },
+        };
+      }
+      const newMsg: Message = {
+        id: `stream-${Date.now()}`,
+        role: 'assistant',
+        type: 'text',
+        content: delta,
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+      return {
+        messagesBySession: {
+          ...state.messagesBySession,
+          [sid]: [...current, newMsg],
+        },
+      };
+    }),
+
+  finalizeStreamingMessage: (finalContent, emotion) =>
+    set((state) => {
+      const sid = state.currentSessionId;
+      if (!sid) return state;
+      const current = state.messagesBySession[sid] ?? [];
+      const last = current[current.length - 1];
+      if (!last || last.role !== 'assistant' || !last.isStreaming) return state;
+      const updated: Message = {
+        ...last,
+        content: finalContent !== null ? finalContent : last.content,
+        emotion: emotion ?? last.emotion,
+        isStreaming: false,
+      };
+      return {
+        messagesBySession: {
+          ...state.messagesBySession,
+          [sid]: [...current.slice(0, -1), updated],
         },
       };
     }),

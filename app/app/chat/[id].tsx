@@ -26,7 +26,8 @@ export default function ChatScreen() {
 
   const {
     isThinking, crisisHolding,
-    addMessage, setThinking, setCrisisHolding, setSession, loadSessionMessages,
+    addMessage, appendDeltaToLastAssistant, finalizeStreamingMessage,
+    setThinking, setCrisisHolding, setSession, loadSessionMessages,
   } = useChatStore();
   const messages = useMessages();
   const { send, lastMessage, isConnected } = useWebSocket(sessionId || '');
@@ -73,6 +74,32 @@ export default function ChatScreen() {
       return;
     }
 
+    // 流字 chunk —— 累积到当前流式 assistant 消息
+    if (lastMessage.type === 'text_chunk') {
+      setThinking(false);
+      appendDeltaToLastAssistant(lastMessage.content || '');
+      return;
+    }
+
+    // 流字结束（未被改写） —— 仅打 emotion / 收尾
+    if (lastMessage.type === 'text_done') {
+      finalizeStreamingMessage(null, lastMessage.emotion?.primary);
+      if (lastMessage.crisis_holding !== undefined) {
+        setCrisisHolding(!!lastMessage.crisis_holding);
+      }
+      return;
+    }
+
+    // 流字结束（被审核改写） —— 用完整 content 替换累积内容
+    if (lastMessage.type === 'text_patch') {
+      finalizeStreamingMessage(lastMessage.content || '', lastMessage.emotion?.primary);
+      if (lastMessage.crisis_holding !== undefined) {
+        setCrisisHolding(!!lastMessage.crisis_holding);
+      }
+      return;
+    }
+
+    // 老协议兜底（服务端回退到一次性发时不至于断）
     if (lastMessage.type === 'text') {
       setThinking(false);
 

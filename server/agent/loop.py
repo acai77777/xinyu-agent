@@ -69,7 +69,7 @@ def _log_llm_call(
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception as e:
         logger.warning(f"[LLM Log] Failed to write: {e}")
-from llm_client import get_async_client, get_model, get_light_model, get_light_client, _is_openai_compatible
+from llm_client import get_async_client, get_model, get_light_model, get_light_client, _is_openai_compatible, get_deepseek_extra_body
 from safety.crisis_detector import detect_crisis, RiskLevel
 from safety.resources import CrisisHolding
 from agent.tools import TOOLS, execute_tool
@@ -90,6 +90,7 @@ async def _llm_chat(
     tools: list | None = None,
     max_tokens: int | None = None,
     model_override: str | None = None,
+    stream_cb=None,
 ) -> dict:
     """
     统一 LLM 调用接口。
@@ -101,6 +102,9 @@ async def _llm_chat(
         "stop_reason": "end_turn" | "tool_use",
         "raw": <原始响应>,
     }
+
+    stream_cb: async callable(delta_text: str) | None
+        DeepSeek 分支专用——传入则启用流式输出，每个 content delta 触发回调。
     """
     if max_tokens is None:
         max_tokens = settings.main_max_tokens
@@ -109,7 +113,7 @@ async def _llm_chat(
     t0 = time.monotonic()
 
     if _is_deepseek():
-        result = await _deepseek_chat(system, messages, tools, max_tokens, model_override)
+        result = await _deepseek_chat(system, messages, tools, max_tokens, model_override, stream_cb)
     else:
         result = await _anthropic_chat(system, messages, tools, max_tokens, model_override)
 
@@ -244,7 +248,7 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
     return oai_msgs
 
 
-async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
+async def _deepseek_chat(system, messages, tools, max_tokens, model_override, stream_cb=None):
     from openai import AsyncOpenAI
 
     # light model 走 DeepSeek 官方直连
@@ -261,30 +265,110 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
         model=model,
         max_tokens=max_tokens,
         messages=oai_messages,
+        extra_body=get_deepseek_extra_body(),
     )
     if tools:
         kwargs["tools"] = _tools_to_openai_format(tools)
 
-    response = await client.chat.completions.create(**kwargs)
+    # === 非流式（原逻辑）===
+    if stream_cb is None:
+        response = await client.chat.completions.create(**kwargs)
 
-    choice = response.choices[0]
-    text = choice.message.content
+        choice = response.choices[0]
+        text = choice.message.content
+        tool_calls = []
+
+        if choice.message.tool_calls:
+            for tc in choice.message.tool_calls:
+                tool_calls.append({
+                    "id": tc.id,
+                    "name": tc.function.name,
+                    "input": json.loads(tc.function.arguments),
+                })
+
+        has_tools = len(tool_calls) > 0
+        return {
+            "text": text,
+            "tool_calls": tool_calls,
+            "stop_reason": "tool_use" if has_tools else "end_turn",
+            "raw": response,
+        }
+
+    # === 流式分支 ===
+    kwargs["stream"] = True
+    full_content = ""
+    tool_calls_accum: dict[int, dict] = {}
+
+    stream = await client.chat.completions.create(**kwargs)
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+
+        # content delta —— 累积并回调（过滤空 chunk）
+        chunk_text = getattr(delta, "content", None)
+        if chunk_text:
+            full_content += chunk_text
+            try:
+                await stream_cb(chunk_text)
+            except Exception as e:
+                logger.warning(f"[stream_cb] error: {e}")
+
+        # tool_calls delta —— 按 index 累积拼接 arguments
+        tc_delta_list = getattr(delta, "tool_calls", None)
+        if tc_delta_list:
+            for tc_delta in tc_delta_list:
+                idx = tc_delta.index
+                slot = tool_calls_accum.setdefault(idx, {"id": "", "name": "", "arguments": ""})
+                if tc_delta.id:
+                    slot["id"] = tc_delta.id
+                fn = getattr(tc_delta, "function", None)
+                if fn is not None:
+                    if fn.name:
+                        slot["name"] = (slot["name"] or "") + fn.name
+                    if fn.arguments:
+                        slot["arguments"] = (slot["arguments"] or "") + fn.arguments
+
+    # 流完后整形为标准格式
     tool_calls = []
+    for idx in sorted(tool_calls_accum.keys()):
+        slot = tool_calls_accum[idx]
+        try:
+            parsed_args = json.loads(slot["arguments"]) if slot["arguments"] else {}
+        except json.JSONDecodeError:
+            parsed_args = {}
+        tool_calls.append({
+            "id": slot["id"],
+            "name": slot["name"],
+            "input": parsed_args,
+        })
 
-    if choice.message.tool_calls:
-        for tc in choice.message.tool_calls:
-            tool_calls.append({
-                "id": tc.id,
-                "name": tc.function.name,
-                "input": json.loads(tc.function.arguments),
-            })
+    # 构造伪 raw 对象兼容主循环 _tool_calls_raw 接口
+    from types import SimpleNamespace
+    raw_tool_calls = [
+        SimpleNamespace(
+            id=tool_calls_accum[idx]["id"],
+            type="function",
+            function=SimpleNamespace(
+                name=tool_calls_accum[idx]["name"],
+                arguments=tool_calls_accum[idx]["arguments"],
+            ),
+        )
+        for idx in sorted(tool_calls_accum.keys())
+    ]
+    fake_raw = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(
+            content=full_content or None,
+            tool_calls=raw_tool_calls or None,
+        ))]
+    )
 
     has_tools = len(tool_calls) > 0
     return {
-        "text": text,
+        "text": full_content or None,
         "tool_calls": tool_calls,
         "stop_reason": "tool_use" if has_tools else "end_turn",
-        "raw": response,
+        "raw": fake_raw,
     }
 
 
@@ -304,6 +388,7 @@ async def run_agent(
     prior_summary: str | None = None,
     prior_compressed_count: int | None = None,
     incremental_rounds: int = 0,
+    stream_cb=None,
 ) -> dict:
     """
     Agent主循环：
@@ -315,8 +400,14 @@ async def run_agent(
     6. 输出安全审核（后置）
     7. 治疗联盟监测
 
+    stream_cb: async callable(delta_text: str) | None
+        流式输出回调，传入则把 LLM content delta 实时发出去。
+        仅用于最终用户可见文本——工具调用轮 content 通常为空。
+
     返回：{"text": str, "emotion": dict|None, "crisis_holding_active": bool,
-           "summary": str|None}
+           "summary": str|None, "raw_text": str}
+        raw_text: LLM 最后一轮原始 content（meta_monitor / post_safety_check 之前）。
+                  用于和 text 比较决定发 text_done 还是 text_patch。
     """
     if tools is None:
         tools = TOOLS
@@ -472,10 +563,12 @@ async def run_agent(
             messages=messages,
             tools=active_tools or None,
             max_tokens=settings.main_max_tokens,
+            stream_cb=stream_cb,
         )
 
         if result["stop_reason"] != "tool_use":
-            final_text = result["text"] or ""
+            raw_text = result["text"] or ""
+            final_text = raw_text
 
             should_semantic_review = (
                 risk.level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
@@ -502,6 +595,7 @@ async def run_agent(
 
             return {
                 "text": final_text,
+                "raw_text": raw_text,
                 "emotion": bg_emotion,
                 "crisis_holding_active": crisis_holding.active,
                 "summary": new_summary,

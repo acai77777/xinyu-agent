@@ -100,3 +100,12 @@ def get_model(override: str | None = None) -> str:
 def get_light_model() -> str:
     """获取轻量模型名（DeepSeek 直连）"""
     return settings.light_model
+
+
+def get_deepseek_extra_body() -> dict:
+    """DeepSeek 推理模型 (v4-flash) 非思考模式参数。
+
+    思考模式下每轮 tool_use 累积 thinking token，3 轮工具循环可达 13.6s。
+    文档：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
+    """
+    return {"thinking": {"type": "disabled"}}

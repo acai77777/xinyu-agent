@@ -29,7 +29,7 @@ def assess_emotion(user_text: str) -> dict:
     情绪评估——用轻量模型做结构化情绪分类。
     返回字典格式供 Agent 工具调用使用。
     """
-    from llm_client import get_sync_client, get_light_model, _is_openai_compatible
+    from llm_client import get_sync_client, get_light_model, _is_openai_compatible, get_deepseek_extra_body
 
     client = get_sync_client()
     model = get_light_model()
@@ -74,6 +74,7 @@ def assess_emotion(user_text: str) -> dict:
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
                 ],
+                extra_body=get_deepseek_extra_body(),
             )
             raw = response.choices[0].message.content.strip()
         else:

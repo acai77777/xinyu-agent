@@ -256,6 +256,10 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             # 发送"正在思考"状态
             await manager.send_json(session_id, {"type": "status", "content": "thinking"})
 
+            # 流式回调——LLM 每产出一段 content 就实时推送给前端
+            async def stream_cb(delta: str):
+                await manager.send_json(session_id, {"type": "text_chunk", "content": delta})
+
             # 调用 Agent 核心循环
             try:
                 response = await run_agent(
@@ -268,10 +272,11 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     prior_summary=prior_summary,
                     prior_compressed_count=prior_compressed_count,
                     incremental_rounds=incremental_rounds,
+                    stream_cb=stream_cb,
                 )
             except Exception as e:
                 print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)
-                response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "emotion": None}
+                response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "raw_text": "", "emotion": None}
 
             # 更新内存中的对话历史
             conversation_history.append({"role": "user", "content": user_text})
@@ -341,8 +346,15 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 finally:
                     await db.close()
 
-            # 发送回复
-            reply = {"type": "text", "content": response["text"]}
+            # 发送回复——流式协议
+            # raw_text == final_text → 流字未被改写，发 text_done
+            # raw_text != final_text → 审核改写了，发 text_patch（带完整修正文本，前端替换累积 chunks）
+            final_text = response["text"]
+            raw_text = response.get("raw_text", "")
+            if raw_text and raw_text == final_text:
+                reply = {"type": "text_done", "content": final_text}
+            else:
+                reply = {"type": "text_patch", "content": final_text}
 
             if response.get("emotion"):
                 reply["emotion"] = response["emotion"]

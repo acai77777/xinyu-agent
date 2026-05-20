@@ -126,7 +126,7 @@ async def _semantic_classify(text: str) -> RiskAssessment:
     阶段2：用轻量模型做语义级危机分类
     能识别：隐喻性自杀表达、第三人称引用（降级）、反讽语境
     """
-    from llm_client import get_async_client, get_light_model, _is_openai_compatible
+    from llm_client import get_async_client, get_light_model, _is_openai_compatible, get_deepseek_extra_body
 
     client = get_async_client()
     model = get_light_model()
@@ -187,6 +187,7 @@ async def _semantic_classify(text: str) -> RiskAssessment:
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
                 ],
+                extra_body=get_deepseek_extra_body(),
             )
             return _parse_semantic_response_openai(response)
         else:

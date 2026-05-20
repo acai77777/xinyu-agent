@@ -8,6 +8,7 @@ export interface Message {
   imageUri?: string;
   exercise?: ExerciseData;
   timestamp: Date;
+  isStreaming?: boolean;
 }
 
 export interface ExerciseData {

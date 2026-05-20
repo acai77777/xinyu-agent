@@ -212,7 +212,7 @@ def _llm_quick_screen(user_text: str) -> bool:
     """
     极简 LLM 快筛：关键词未命中时兜底，仅问"有没有认知扭曲"。
     """
-    from llm_client import get_sync_client, get_light_model, _is_openai_compatible
+    from llm_client import get_sync_client, get_light_model, _is_openai_compatible, get_deepseek_extra_body
 
     client = get_sync_client()
     model = get_light_model()
@@ -233,6 +233,7 @@ def _llm_quick_screen(user_text: str) -> bool:
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
                 ],
+                extra_body=get_deepseek_extra_body(),
             )
             raw = response.choices[0].message.content.strip()
         else:
@@ -252,7 +253,7 @@ def _llm_confirm_distortions(
     user_text: str, candidates: list[str]
 ) -> list[DistortionResult]:
     """用轻量模型对关键词预筛候选进行语义确认，降低误报"""
-    from llm_client import get_sync_client, get_light_model, _is_openai_compatible
+    from llm_client import get_sync_client, get_light_model, _is_openai_compatible, get_deepseek_extra_body
 
     client = get_sync_client()
     model = get_light_model()
@@ -286,6 +287,7 @@ def _llm_confirm_distortions(
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_content},
                 ],
+                extra_body=get_deepseek_extra_body(),
             )
             raw = response.choices[0].message.content.strip()
         else:
