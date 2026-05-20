@@ -9,6 +9,8 @@ import base64
 
 import httpx
 
+from config import settings
+
 
 async def analyze_image(
     image_source: str,
@@ -44,7 +46,7 @@ async def analyze_image(
     if _is_openai_compatible():
         response = await client.chat.completions.create(
             model=model,
-            max_tokens=512,
+            max_tokens=settings.medium_max_tokens,
             messages=[{
                 "role": "user",
                 "content": [
@@ -62,7 +64,7 @@ async def analyze_image(
     else:
         response = await client.messages.create(
             model=model,
-            max_tokens=512,
+            max_tokens=settings.medium_max_tokens,
             messages=[{
                 "role": "user",
                 "content": [

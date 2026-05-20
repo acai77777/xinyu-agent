@@ -132,7 +132,7 @@ async def _judge_dialogue(case: dict, full_dialogue: list[dict]) -> dict:
         # light model 固定走 DeepSeek 直连（OpenAI 兼容格式）
         response = await client.chat.completions.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=settings.large_max_tokens,
             messages=[
                 {"role": "system", "content": "你是心理咨询督导评估专家。严格按JSON格式输出评估结果。"},
                 {"role": "user", "content": prompt},

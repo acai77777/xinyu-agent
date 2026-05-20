@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8")
 
+from config import settings
 from llm_client import get_async_client, get_model, _is_openai_compatible
 
 DATA_DIR = Path(__file__).parent / "data"
@@ -29,7 +30,7 @@ async def _llm_call(system: str, user_content: str) -> str:
     if _is_openai_compatible():
         response = await client.chat.completions.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=settings.large_max_tokens,
             temperature=0.1,
             messages=[
                 {"role": "system", "content": system},
@@ -40,7 +41,7 @@ async def _llm_call(system: str, user_content: str) -> str:
     else:
         response = await client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=settings.large_max_tokens,
             temperature=0.1,
             system=system,
             messages=[{"role": "user", "content": user_content}],

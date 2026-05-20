@@ -9,6 +9,8 @@ import logging
 
 import httpx
 
+from config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +57,7 @@ async def transcribe_with_emotion_hints(audio_source: str) -> dict:
     try:
         response = await client.chat.completions.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=settings.large_max_tokens,
             messages=[{
                 "role": "user",
                 "content": [

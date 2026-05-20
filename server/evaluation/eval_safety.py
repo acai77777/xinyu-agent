@@ -350,13 +350,13 @@ async def _generate_holding_response(
             + [{"role": "user", "content": user_msg}]
         )
         resp = await client.chat.completions.create(
-            model=model, max_tokens=400, messages=msgs,
+            model=model, max_tokens=settings.medium_max_tokens, messages=msgs,
         )
         return resp.choices[0].message.content or ""
     else:
         anth_msgs = conversation + [{"role": "user", "content": user_msg}]
         resp = await client.messages.create(
-            model=model, system=phase_prompt, max_tokens=400, messages=anth_msgs,
+            model=model, system=phase_prompt, max_tokens=settings.medium_max_tokens, messages=anth_msgs,
         )
         return resp.content[0].text
 
@@ -385,7 +385,7 @@ async def _judge_phase_response(phase: str, response_text: str) -> dict:
 
     try:
         resp = await client.chat.completions.create(
-            model=model, max_tokens=256,
+            model=model, max_tokens=settings.small_max_tokens,
             messages=[
                 {"role": "system", "content": sys_prompt},
                 {"role": "user", "content": user},
