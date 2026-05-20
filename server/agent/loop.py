@@ -189,6 +189,10 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
         # DeepSeek 工具循环中的 assistant 消息（带 _tool_calls_raw）
         if role == "assistant" and "_tool_calls_raw" in msg:
             assistant_msg: dict = {"role": "assistant", "content": msg.get("content") or None}
+            # 推理模型（v4-flash 等）要求 reasoning_content 必须回传给下一轮 API
+            reasoning = msg.get("_reasoning_content")
+            if reasoning:
+                assistant_msg["reasoning_content"] = reasoning
             tc_raw = msg["_tool_calls_raw"]
             if tc_raw:
                 assistant_msg["tool_calls"] = [
@@ -297,6 +301,7 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
     # === 流式分支 ===
     kwargs["stream"] = True
     full_content = ""
+    reasoning_content = ""
     tool_calls_accum: dict[int, dict] = {}
 
     stream = await client.chat.completions.create(**kwargs)
@@ -313,6 +318,11 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
                 await stream_cb(chunk_text)
             except Exception as e:
                 logger.warning(f"[stream_cb] error: {e}")
+
+        # reasoning_content delta —— 累积透传给下一轮 API（推理模型必需）
+        chunk_reasoning = getattr(delta, "reasoning_content", None)
+        if chunk_reasoning:
+            reasoning_content += chunk_reasoning
 
         # tool_calls delta —— 按 index 累积拼接 arguments
         tc_delta_list = getattr(delta, "tool_calls", None)
@@ -343,7 +353,7 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
             "input": parsed_args,
         })
 
-    # 构造伪 raw 对象兼容主循环 _tool_calls_raw 接口
+    # 构造伪 raw 对象兼容主循环 _tool_calls_raw / reasoning_content 接口
     from types import SimpleNamespace
     raw_tool_calls = [
         SimpleNamespace(
@@ -360,6 +370,7 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
         choices=[SimpleNamespace(message=SimpleNamespace(
             content=full_content or None,
             tool_calls=raw_tool_calls or None,
+            reasoning_content=reasoning_content or None,
         ))]
     )
 
@@ -414,41 +425,20 @@ async def run_agent(
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
-    # === 前置安全检查（必须等待）===
-    risk = await detect_crisis(user_message)
+    # === 启动 detect_crisis 异步任务（与后续 IO 并行）===
+    crisis_task = asyncio.create_task(detect_crisis(user_message))
 
-    # === 危机抱持模式处理 ===
+    # === 不依赖 risk 的初始化 ===
     if crisis_holding is None:
         crisis_holding = CrisisHolding()
 
-    if risk.level == RiskLevel.CRITICAL and risk.semantic_confirmed:
-        if not crisis_holding.active:
-            crisis_holding.enter()
-
-    # 将风险信息注入上下文（后台评估结果不等待，下一轮可用）
     context_enriched_prompt = system_prompt
     context_hints: list[str] = []
-
-    if crisis_holding.active:
-        context_hints.append(crisis_holding.get_phase_prompt())
-        context_hints.append(
-            "[绝对禁止] 在抱持模式下，不得使用任何工具（tool_use），"
-            "不得进行认知评估，不得推荐练习。你唯一的任务是陪伴。"
-        )
-
-    if risk.level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
-        context_hints.append(
-            f"[安全提示] 用户当前风险等级：{risk.level.value}，"
-            f"请在回复中温和地建议寻求专业帮助。"
-        )
-
     bg_emotion = None
-
     alliance_warning = _check_alliance(user_message, conversation_history)
-    if alliance_warning:
-        context_hints.append(f"[关系提示] {alliance_warning}")
 
-    # === 结构化笔记：统一加载上下文（画像/叙事/关系/策略）===
+    # === 笔记加载（不依赖 risk）===
+    notes = None
     _notes_profile = ""
     _notes_issue = ""
     try:
@@ -457,29 +447,10 @@ async def run_agent(
         notes = await load_or_create(session_id or "", user_id, turn_count)
         _notes_profile = notes.user_profile_summary
         _notes_issue = notes.presenting_issue
-
-        if notes.is_warm() and not crisis_holding.active:
-            # 暖启动：紧凑模式（<500 token）
-            compact = notes.to_compact_prompt()
-            if compact:
-                context_hints.append(compact)
-            logger.debug("[Notes] Warm mode, compact prompt %d chars", len(compact))
-        else:
-            # 冷启动：回退到全量注入
-            await _inject_full_context(
-                context_hints, user_message, user_id, session_id, crisis_holding,
-            )
     except Exception as e:
-        logger.warning(f"[Notes] Failed, fallback to full context: {e}")
-        try:
-            await _inject_full_context(
-                context_hints, user_message, user_id, session_id, crisis_holding,
-            )
-        except Exception:
-            pass
+        logger.warning(f"[Notes] Load failed: {e}")
 
-    # === 子 Agent 编排（非阻塞，后台并行）===
-    # 放在 notes 加载之后，以便传入真实的画像和议题
+    # === 乐观启动 sub_agents（与 detect_crisis 并行；risk 触发 enter 时取消）===
     sub_agent_task: asyncio.Task | None = None
     if not crisis_holding.active:
         try:
@@ -497,13 +468,70 @@ async def run_agent(
         except Exception as e:
             logger.warning(f"[SubAgent] Failed to launch: {e}")
 
-    # 关系状态机更新（无论冷暖都要执行，零 LLM 成本）
+    # === 关系状态机更新（零 LLM 成本，可与 detect_crisis 并行）===
     try:
         from memory.user_profile import RelationshipStateMachine
         rsm = RelationshipStateMachine()
         await asyncio.to_thread(rsm.update, user_id, user_message)
     except Exception:
         pass
+
+    # === 等待 detect_crisis 完成 ===
+    risk = await crisis_task
+
+    # === 危机抱持模式处理（必要时取消 sub_agents）===
+    if risk.level == RiskLevel.CRITICAL and risk.semantic_confirmed:
+        if not crisis_holding.active:
+            crisis_holding.enter()
+            # 进入抱持模式：取消乐观启动的 sub_agents（禁用工具/评估）
+            if sub_agent_task is not None and not sub_agent_task.done():
+                sub_agent_task.cancel()
+                sub_agent_task = None
+
+    # === risk / 关系 相关 context_hints 注入 ===
+    if crisis_holding.active:
+        context_hints.append(crisis_holding.get_phase_prompt())
+        context_hints.append(
+            "[绝对禁止] 在抱持模式下，不得使用任何工具（tool_use），"
+            "不得进行认知评估，不得推荐练习。你唯一的任务是陪伴。"
+        )
+
+    if risk.level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+        context_hints.append(
+            f"[安全提示] 用户当前风险等级：{risk.level.value}，"
+            f"请在回复中温和地建议寻求专业帮助。"
+        )
+
+    if alliance_warning:
+        context_hints.append(f"[关系提示] {alliance_warning}")
+
+    # === full_context 注入（按 crisis_holding 状态决定路径）===
+    if notes is not None:
+        try:
+            if notes.is_warm() and not crisis_holding.active:
+                compact = notes.to_compact_prompt()
+                if compact:
+                    context_hints.append(compact)
+                logger.debug("[Notes] Warm mode, compact prompt %d chars", len(compact))
+            else:
+                await _inject_full_context(
+                    context_hints, user_message, user_id, session_id, crisis_holding,
+                )
+        except Exception as e:
+            logger.warning(f"[Notes] Inject failed, fallback to full context: {e}")
+            try:
+                await _inject_full_context(
+                    context_hints, user_message, user_id, session_id, crisis_holding,
+                )
+            except Exception:
+                pass
+    else:
+        try:
+            await _inject_full_context(
+                context_hints, user_message, user_id, session_id, crisis_holding,
+            )
+        except Exception:
+            pass
 
     if multimodal_context:
         context_hints.extend(multimodal_context)
@@ -523,6 +551,9 @@ async def run_agent(
             knowledge = sub_results.get("knowledge")
             if knowledge:
                 context_hints.append(f"[专业参考] {knowledge}")
+        except asyncio.CancelledError:
+            # crisis 模式主动取消，正常路径
+            pass
         except Exception as e:
             logger.warning(f"[SubAgent] Result collection failed: {e}")
 
@@ -623,9 +654,12 @@ async def run_agent(
             # OpenAI 格式：assistant message with tool_calls + 每个 tool 单独 message
             assistant_content = result["text"] or ""
             raw_choice = result["raw"].choices[0]
+            # 推理模型（v4-flash 等）的 reasoning_content 必须随消息透传，否则第二轮 API 报 400
+            reasoning_content = getattr(raw_choice.message, "reasoning_content", None)
             # 存储原始 assistant message 用于后续转换
             messages.append({"role": "assistant", "content": assistant_content,
-                             "_tool_calls_raw": raw_choice.message.tool_calls})
+                             "_tool_calls_raw": raw_choice.message.tool_calls,
+                             "_reasoning_content": reasoning_content})
             for tr in tool_results:
                 messages.append({
                     "role": "tool",

@@ -15,6 +15,7 @@ from agent.loop import (
     _check_alliance,
     _meta_monitor,
     _rule_based_fix,
+    _messages_to_openai_format,
 )
 
 
@@ -359,3 +360,102 @@ class TestProviderSwitch:
         """当前 .env 配置为 deepseek"""
         # conftest.py 设置 LLM_PROVIDER=deepseek
         assert _is_deepseek() is True
+
+
+# =====================================================================
+# 6. DeepSeek 推理模型 reasoning_content 透传（v4-flash 工具循环）
+# =====================================================================
+
+class _FakeFunction:
+    def __init__(self, name, arguments):
+        self.name = name
+        self.arguments = arguments
+
+
+class _FakeToolCall:
+    def __init__(self, id_, name, arguments):
+        self.id = id_
+        self.function = _FakeFunction(name, arguments)
+
+
+class TestReasoningContentRoundtrip:
+    """
+    v4-flash 等推理模型在工具循环第二轮必须把 reasoning_content 回传，
+    否则 DeepSeek API 返回 400: 'The reasoning_content in the thinking mode
+    must be passed back to the API.'
+    """
+
+    def test_reasoning_content_preserved_when_present(self):
+        """带 _reasoning_content 的 assistant 消息必须在 OpenAI payload 中输出 reasoning_content 字段"""
+        messages = [
+            {"role": "user", "content": "你好"},
+            {
+                "role": "assistant",
+                "content": "",
+                "_tool_calls_raw": [_FakeToolCall("call_1", "assess_emotion", '{"text":"hi"}')],
+                "_reasoning_content": "用户问候，我应该调用情绪评估工具确认状态。",
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "{\"emotion\":\"calm\"}"},
+        ]
+        oai = _messages_to_openai_format("sys", messages)
+        assistant_msgs = [m for m in oai if m["role"] == "assistant"]
+        assert len(assistant_msgs) == 1
+        assert "reasoning_content" in assistant_msgs[0], \
+            "推理模型的 reasoning_content 必须透传给第二轮 API"
+        assert assistant_msgs[0]["reasoning_content"] == "用户问候，我应该调用情绪评估工具确认状态。"
+        # tool_calls 字段也必须正确转换
+        assert "tool_calls" in assistant_msgs[0]
+        assert assistant_msgs[0]["tool_calls"][0]["id"] == "call_1"
+
+    def test_reasoning_content_absent_when_none(self):
+        """非推理模型（reasoning_content=None 或缺失）时不应往 payload 加该字段，避免污染"""
+        messages = [
+            {"role": "user", "content": "你好"},
+            {
+                "role": "assistant",
+                "content": "",
+                "_tool_calls_raw": [_FakeToolCall("call_1", "assess_emotion", "{}")],
+                "_reasoning_content": None,
+            },
+        ]
+        oai = _messages_to_openai_format("sys", messages)
+        assistant_msgs = [m for m in oai if m["role"] == "assistant"]
+        assert "reasoning_content" not in assistant_msgs[0]
+
+    def test_reasoning_content_absent_when_field_missing(self):
+        """旧消息没有 _reasoning_content 字段时，转换照常不报错且不带 reasoning_content"""
+        messages = [
+            {
+                "role": "assistant",
+                "content": "",
+                "_tool_calls_raw": [_FakeToolCall("call_1", "assess_emotion", "{}")],
+            },
+        ]
+        oai = _messages_to_openai_format("sys", messages)
+        assistant_msgs = [m for m in oai if m["role"] == "assistant"]
+        assert "reasoning_content" not in assistant_msgs[0]
+
+    def test_reasoning_content_each_round_independent(self):
+        """多轮工具调用：每一轮的 reasoning_content 都要独立透传"""
+        messages = [
+            {"role": "user", "content": "问题"},
+            {
+                "role": "assistant",
+                "content": "",
+                "_tool_calls_raw": [_FakeToolCall("call_1", "tool_a", "{}")],
+                "_reasoning_content": "第一轮思考",
+            },
+            {"role": "tool", "tool_call_id": "call_1", "content": "r1"},
+            {
+                "role": "assistant",
+                "content": "",
+                "_tool_calls_raw": [_FakeToolCall("call_2", "tool_b", "{}")],
+                "_reasoning_content": "第二轮思考",
+            },
+            {"role": "tool", "tool_call_id": "call_2", "content": "r2"},
+        ]
+        oai = _messages_to_openai_format("sys", messages)
+        assistant_msgs = [m for m in oai if m["role"] == "assistant"]
+        assert len(assistant_msgs) == 2
+        assert assistant_msgs[0]["reasoning_content"] == "第一轮思考"
+        assert assistant_msgs[1]["reasoning_content"] == "第二轮思考"
