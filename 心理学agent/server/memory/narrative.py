@@ -150,7 +150,7 @@ class NarrativeMemory:
         summary = arc.get("arc_summary", "")
 
         if need_llm:
-            from llm_client import get_async_client, get_light_model, _is_openai_compatible
+            from llm_client import get_async_client, get_light_model, _is_openai_compatible, get_deepseek_extra_body
 
             client = get_async_client()
             model = get_light_model()
@@ -182,17 +182,18 @@ class NarrativeMemory:
                 if _is_openai_compatible():
                     response = await client.chat.completions.create(
                         model=model,
-                        max_tokens=256,
+                        max_tokens=settings.small_max_tokens,
                         messages=[
                             {"role": "system", "content": system_msg},
                             {"role": "user", "content": user_content},
                         ],
+                        extra_body=get_deepseek_extra_body(),
                     )
                     raw_text = response.choices[0].message.content.strip()
                 else:
                     response = await client.messages.create(
                         model=model,
-                        max_tokens=256,
+                        max_tokens=settings.small_max_tokens,
                         system=system_msg,
                         messages=[{"role": "user", "content": user_content}],
                     )

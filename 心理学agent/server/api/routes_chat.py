@@ -6,6 +6,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import asyncio
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 from agent.loop import run_agent
@@ -214,6 +215,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
         while True:
             raw = await ws.receive_text()
             print(f"[WS] Received msg: {raw[:100]}", flush=True)
+            print(f"[PERF] tag=ws_recv t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
             msg = json.loads(raw)
 
             # 根据消息类型预处理
@@ -252,9 +254,19 @@ async def chat_websocket(ws: WebSocket, session_id: str):
 
             # 保存用户消息到数据库
             await _save_message(session_id, "user", user_text, msg_type)
+            print(f"[PERF] tag=save_user_done t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
 
             # 发送"正在思考"状态
             await manager.send_json(session_id, {"type": "status", "content": "thinking"})
+            print(f"[PERF] tag=send_thinking_done t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
+
+            # 流式回调——LLM 每产出一段 content 就实时推送给前端
+            _first_chunk_logged = {"hit": False}
+            async def stream_cb(delta: str):
+                if not _first_chunk_logged["hit"]:
+                    _first_chunk_logged["hit"] = True
+                    print(f"[PERF] tag=first_chunk t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
+                await manager.send_json(session_id, {"type": "text_chunk", "content": delta})
 
             # 调用 Agent 核心循环
             try:
@@ -268,10 +280,12 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     prior_summary=prior_summary,
                     prior_compressed_count=prior_compressed_count,
                     incremental_rounds=incremental_rounds,
+                    stream_cb=stream_cb,
                 )
             except Exception as e:
                 print(f"[Agent Error] {type(e).__name__}: {e}", flush=True)
-                response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "emotion": None}
+                response = {"text": "抱歉，处理消息时遇到了问题，请稍后重试。", "raw_text": "", "emotion": None}
+            print(f"[PERF] tag=run_agent_done t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
 
             # 更新内存中的对话历史
             conversation_history.append({"role": "user", "content": user_text})
@@ -317,6 +331,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
 
             # 保存 AI 回复到数据库
             await _save_message(session_id, "assistant", response["text"])
+            print(f"[PERF] tag=save_assistant_done t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
 
             # 后台生成策略（无策略时每轮尝试，有了就不再触发）
             try:
@@ -327,6 +342,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     )
             except Exception:
                 pass
+            print(f"[PERF] tag=load_strategy_done t={time.monotonic():.4f} sid={session_id[:8]}", flush=True)
 
             # 自动生成会话标题（首次对话时）
             if len(conversation_history) == 2:
@@ -341,8 +357,15 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 finally:
                     await db.close()
 
-            # 发送回复
-            reply = {"type": "text", "content": response["text"]}
+            # 发送回复——流式协议
+            # raw_text == final_text → 流字未被改写，发 text_done
+            # raw_text != final_text → 审核改写了，发 text_patch（带完整修正文本，前端替换累积 chunks）
+            final_text = response["text"]
+            raw_text = response.get("raw_text", "")
+            if raw_text and raw_text == final_text:
+                reply = {"type": "text_done", "content": final_text}
+            else:
+                reply = {"type": "text_patch", "content": final_text}
 
             if response.get("emotion"):
                 reply["emotion"] = response["emotion"]
@@ -351,6 +374,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 reply["crisis_holding"] = True
 
             await manager.send_json(session_id, reply)
+            print(f"[PERF] tag=send_reply_done t={time.monotonic():.4f} sid={session_id[:8]} kind={reply['type']}", flush=True)
 
     except WebSocketDisconnect:
         manager.disconnect(session_id)

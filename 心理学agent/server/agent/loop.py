@@ -69,7 +69,7 @@ def _log_llm_call(
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception as e:
         logger.warning(f"[LLM Log] Failed to write: {e}")
-from llm_client import get_async_client, get_model, get_light_model, get_light_client, _is_openai_compatible
+from llm_client import get_async_client, get_model, get_light_model, get_light_client, _is_openai_compatible, get_deepseek_extra_body
 from safety.crisis_detector import detect_crisis, RiskLevel
 from safety.resources import CrisisHolding
 from agent.tools import TOOLS, execute_tool
@@ -90,6 +90,7 @@ async def _llm_chat(
     tools: list | None = None,
     max_tokens: int | None = None,
     model_override: str | None = None,
+    stream_cb=None,
 ) -> dict:
     """
     统一 LLM 调用接口。
@@ -101,15 +102,18 @@ async def _llm_chat(
         "stop_reason": "end_turn" | "tool_use",
         "raw": <原始响应>,
     }
+
+    stream_cb: async callable(delta_text: str) | None
+        DeepSeek 分支专用——传入则启用流式输出，每个 content delta 触发回调。
     """
     if max_tokens is None:
-        max_tokens = settings.max_tokens
+        max_tokens = settings.main_max_tokens
 
     model = get_model(model_override)
     t0 = time.monotonic()
 
     if _is_deepseek():
-        result = await _deepseek_chat(system, messages, tools, max_tokens, model_override)
+        result = await _deepseek_chat(system, messages, tools, max_tokens, model_override, stream_cb)
     else:
         result = await _anthropic_chat(system, messages, tools, max_tokens, model_override)
 
@@ -185,6 +189,10 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
         # DeepSeek 工具循环中的 assistant 消息（带 _tool_calls_raw）
         if role == "assistant" and "_tool_calls_raw" in msg:
             assistant_msg: dict = {"role": "assistant", "content": msg.get("content") or None}
+            # 推理模型（v4-flash 等）要求 reasoning_content 必须回传给下一轮 API
+            reasoning = msg.get("_reasoning_content")
+            if reasoning:
+                assistant_msg["reasoning_content"] = reasoning
             tc_raw = msg["_tool_calls_raw"]
             if tc_raw:
                 assistant_msg["tool_calls"] = [
@@ -244,7 +252,7 @@ def _messages_to_openai_format(system: str, messages: list) -> list:
     return oai_msgs
 
 
-async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
+async def _deepseek_chat(system, messages, tools, max_tokens, model_override, stream_cb=None):
     from openai import AsyncOpenAI
 
     # light model 走 DeepSeek 官方直连
@@ -261,30 +269,117 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override):
         model=model,
         max_tokens=max_tokens,
         messages=oai_messages,
+        extra_body=get_deepseek_extra_body(),
     )
     if tools:
         kwargs["tools"] = _tools_to_openai_format(tools)
 
-    response = await client.chat.completions.create(**kwargs)
+    # === 非流式（原逻辑）===
+    if stream_cb is None:
+        response = await client.chat.completions.create(**kwargs)
 
-    choice = response.choices[0]
-    text = choice.message.content
+        choice = response.choices[0]
+        text = choice.message.content
+        tool_calls = []
+
+        if choice.message.tool_calls:
+            for tc in choice.message.tool_calls:
+                tool_calls.append({
+                    "id": tc.id,
+                    "name": tc.function.name,
+                    "input": json.loads(tc.function.arguments),
+                })
+
+        has_tools = len(tool_calls) > 0
+        return {
+            "text": text,
+            "tool_calls": tool_calls,
+            "stop_reason": "tool_use" if has_tools else "end_turn",
+            "raw": response,
+        }
+
+    # === 流式分支 ===
+    kwargs["stream"] = True
+    full_content = ""
+    reasoning_content = ""
+    tool_calls_accum: dict[int, dict] = {}
+
+    stream = await client.chat.completions.create(**kwargs)
+    async for chunk in stream:
+        if not chunk.choices:
+            continue
+        delta = chunk.choices[0].delta
+
+        # content delta —— 累积并回调（过滤空 chunk）
+        chunk_text = getattr(delta, "content", None)
+        if chunk_text:
+            full_content += chunk_text
+            try:
+                await stream_cb(chunk_text)
+            except Exception as e:
+                logger.warning(f"[stream_cb] error: {e}")
+
+        # reasoning_content delta —— 累积透传给下一轮 API（推理模型必需）
+        chunk_reasoning = getattr(delta, "reasoning_content", None)
+        if chunk_reasoning:
+            reasoning_content += chunk_reasoning
+
+        # tool_calls delta —— 按 index 累积拼接 arguments
+        tc_delta_list = getattr(delta, "tool_calls", None)
+        if tc_delta_list:
+            for tc_delta in tc_delta_list:
+                idx = tc_delta.index
+                slot = tool_calls_accum.setdefault(idx, {"id": "", "name": "", "arguments": ""})
+                if tc_delta.id:
+                    slot["id"] = tc_delta.id
+                fn = getattr(tc_delta, "function", None)
+                if fn is not None:
+                    if fn.name:
+                        slot["name"] = (slot["name"] or "") + fn.name
+                    if fn.arguments:
+                        slot["arguments"] = (slot["arguments"] or "") + fn.arguments
+
+    # 流完后整形为标准格式
     tool_calls = []
+    for idx in sorted(tool_calls_accum.keys()):
+        slot = tool_calls_accum[idx]
+        try:
+            parsed_args = json.loads(slot["arguments"]) if slot["arguments"] else {}
+        except json.JSONDecodeError:
+            parsed_args = {}
+        tool_calls.append({
+            "id": slot["id"],
+            "name": slot["name"],
+            "input": parsed_args,
+        })
 
-    if choice.message.tool_calls:
-        for tc in choice.message.tool_calls:
-            tool_calls.append({
-                "id": tc.id,
-                "name": tc.function.name,
-                "input": json.loads(tc.function.arguments),
-            })
+    # 构造伪 raw 对象兼容主循环 _tool_calls_raw / reasoning_content 接口
+    from types import SimpleNamespace
+    raw_tool_calls = [
+        SimpleNamespace(
+            id=tool_calls_accum[idx]["id"],
+            type="function",
+            function=SimpleNamespace(
+                name=tool_calls_accum[idx]["name"],
+                arguments=tool_calls_accum[idx]["arguments"],
+            ),
+        )
+        for idx in sorted(tool_calls_accum.keys())
+    ]
+    fake_raw = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(
+            content=full_content or None,
+            tool_calls=raw_tool_calls or None,
+            reasoning_content=reasoning_content or None,
+        ))]
+    )
 
     has_tools = len(tool_calls) > 0
     return {
-        "text": text,
+        "text": full_content or None,
         "tool_calls": tool_calls,
         "stop_reason": "tool_use" if has_tools else "end_turn",
-        "raw": response,
+        "raw": fake_raw,
     }
 
 
@@ -304,6 +399,7 @@ async def run_agent(
     prior_summary: str | None = None,
     prior_compressed_count: int | None = None,
     incremental_rounds: int = 0,
+    stream_cb=None,
 ) -> dict:
     """
     Agent主循环：
@@ -315,49 +411,37 @@ async def run_agent(
     6. 输出安全审核（后置）
     7. 治疗联盟监测
 
+    stream_cb: async callable(delta_text: str) | None
+        流式输出回调，传入则把 LLM content delta 实时发出去。
+        仅用于最终用户可见文本——工具调用轮 content 通常为空。
+
     返回：{"text": str, "emotion": dict|None, "crisis_holding_active": bool,
-           "summary": str|None}
+           "summary": str|None, "raw_text": str}
+        raw_text: LLM 最后一轮原始 content（meta_monitor / post_safety_check 之前）。
+                  用于和 text 比较决定发 text_done 还是 text_patch。
     """
     if tools is None:
         tools = TOOLS
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
-    # === 前置安全检查（必须等待）===
-    risk = await detect_crisis(user_message)
+    _sid8 = (session_id or "")[:8]
+    print(f"[PERF] tag=run_agent_enter t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
-    # === 危机抱持模式处理 ===
+    # === 启动 detect_crisis 异步任务（与后续 IO 并行）===
+    crisis_task = asyncio.create_task(detect_crisis(user_message))
+
+    # === 不依赖 risk 的初始化 ===
     if crisis_holding is None:
         crisis_holding = CrisisHolding()
 
-    if risk.level == RiskLevel.CRITICAL and risk.semantic_confirmed:
-        if not crisis_holding.active:
-            crisis_holding.enter()
-
-    # 将风险信息注入上下文（后台评估结果不等待，下一轮可用）
     context_enriched_prompt = system_prompt
     context_hints: list[str] = []
-
-    if crisis_holding.active:
-        context_hints.append(crisis_holding.get_phase_prompt())
-        context_hints.append(
-            "[绝对禁止] 在抱持模式下，不得使用任何工具（tool_use），"
-            "不得进行认知评估，不得推荐练习。你唯一的任务是陪伴。"
-        )
-
-    if risk.level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
-        context_hints.append(
-            f"[安全提示] 用户当前风险等级：{risk.level.value}，"
-            f"请在回复中温和地建议寻求专业帮助。"
-        )
-
     bg_emotion = None
-
     alliance_warning = _check_alliance(user_message, conversation_history)
-    if alliance_warning:
-        context_hints.append(f"[关系提示] {alliance_warning}")
 
-    # === 结构化笔记：统一加载上下文（画像/叙事/关系/策略）===
+    # === 笔记加载（不依赖 risk）===
+    notes = None
     _notes_profile = ""
     _notes_issue = ""
     try:
@@ -366,29 +450,11 @@ async def run_agent(
         notes = await load_or_create(session_id or "", user_id, turn_count)
         _notes_profile = notes.user_profile_summary
         _notes_issue = notes.presenting_issue
-
-        if notes.is_warm() and not crisis_holding.active:
-            # 暖启动：紧凑模式（<500 token）
-            compact = notes.to_compact_prompt()
-            if compact:
-                context_hints.append(compact)
-            logger.debug("[Notes] Warm mode, compact prompt %d chars", len(compact))
-        else:
-            # 冷启动：回退到全量注入
-            await _inject_full_context(
-                context_hints, user_message, user_id, session_id, crisis_holding,
-            )
+        print(f"[PERF] tag=notes_load_done t={time.monotonic():.4f} sid={_sid8} warm={notes.is_warm()}", flush=True)
     except Exception as e:
-        logger.warning(f"[Notes] Failed, fallback to full context: {e}")
-        try:
-            await _inject_full_context(
-                context_hints, user_message, user_id, session_id, crisis_holding,
-            )
-        except Exception:
-            pass
+        logger.warning(f"[Notes] Load failed: {e}")
 
-    # === 子 Agent 编排（非阻塞，后台并行）===
-    # 放在 notes 加载之后，以便传入真实的画像和议题
+    # === 乐观启动 sub_agents（与 detect_crisis 并行；risk 触发 enter 时取消）===
     sub_agent_task: asyncio.Task | None = None
     if not crisis_holding.active:
         try:
@@ -406,13 +472,72 @@ async def run_agent(
         except Exception as e:
             logger.warning(f"[SubAgent] Failed to launch: {e}")
 
-    # 关系状态机更新（无论冷暖都要执行，零 LLM 成本）
+    # === 关系状态机更新（零 LLM 成本，可与 detect_crisis 并行）===
     try:
         from memory.user_profile import RelationshipStateMachine
         rsm = RelationshipStateMachine()
         await asyncio.to_thread(rsm.update, user_id, user_message)
     except Exception:
         pass
+
+    # === 等待 detect_crisis 完成 ===
+    risk = await crisis_task
+    print(f"[PERF] tag=detect_crisis_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
+
+    # === 危机抱持模式处理（必要时取消 sub_agents）===
+    if risk.level == RiskLevel.CRITICAL and risk.semantic_confirmed:
+        if not crisis_holding.active:
+            crisis_holding.enter()
+            # 进入抱持模式：取消乐观启动的 sub_agents（禁用工具/评估）
+            if sub_agent_task is not None and not sub_agent_task.done():
+                sub_agent_task.cancel()
+                sub_agent_task = None
+
+    # === risk / 关系 相关 context_hints 注入 ===
+    if crisis_holding.active:
+        context_hints.append(crisis_holding.get_phase_prompt())
+        context_hints.append(
+            "[绝对禁止] 在抱持模式下，不得使用任何工具（tool_use），"
+            "不得进行认知评估，不得推荐练习。你唯一的任务是陪伴。"
+        )
+
+    if risk.level in (RiskLevel.HIGH, RiskLevel.MEDIUM):
+        context_hints.append(
+            f"[安全提示] 用户当前风险等级：{risk.level.value}，"
+            f"请在回复中温和地建议寻求专业帮助。"
+        )
+
+    if alliance_warning:
+        context_hints.append(f"[关系提示] {alliance_warning}")
+
+    # === full_context 注入（按 crisis_holding 状态决定路径）===
+    if notes is not None:
+        try:
+            if notes.is_warm() and not crisis_holding.active:
+                compact = notes.to_compact_prompt()
+                if compact:
+                    context_hints.append(compact)
+                logger.debug("[Notes] Warm mode, compact prompt %d chars", len(compact))
+            else:
+                await _inject_full_context(
+                    context_hints, user_message, user_id, session_id, crisis_holding,
+                )
+        except Exception as e:
+            logger.warning(f"[Notes] Inject failed, fallback to full context: {e}")
+            try:
+                await _inject_full_context(
+                    context_hints, user_message, user_id, session_id, crisis_holding,
+                )
+            except Exception:
+                pass
+    else:
+        try:
+            await _inject_full_context(
+                context_hints, user_message, user_id, session_id, crisis_holding,
+            )
+        except Exception:
+            pass
+    print(f"[PERF] tag=full_context_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     if multimodal_context:
         context_hints.extend(multimodal_context)
@@ -432,8 +557,12 @@ async def run_agent(
             knowledge = sub_results.get("knowledge")
             if knowledge:
                 context_hints.append(f"[专业参考] {knowledge}")
+        except asyncio.CancelledError:
+            # crisis 模式主动取消，正常路径
+            pass
         except Exception as e:
             logger.warning(f"[SubAgent] Result collection failed: {e}")
+    print(f"[PERF] tag=sub_agents_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     # === 对话压缩（滑动窗口 + LLM 摘要）===
     new_summary = prior_summary  # 默认保持不变
@@ -449,6 +578,7 @@ async def run_agent(
     except Exception as e:
         logger.warning(f"[Compressor] Failed, using full history: {e}")
         compressed_history = conversation_history
+    print(f"[PERF] tag=compress_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     # 摘要注入 system prompt（不构造假消息）
     if new_summary:
@@ -471,11 +601,14 @@ async def run_agent(
             system=context_enriched_prompt,
             messages=messages,
             tools=active_tools or None,
-            max_tokens=settings.max_tokens,
+            max_tokens=settings.main_max_tokens,
+            stream_cb=stream_cb,
         )
+        print(f"[PERF] tag=main_llm_done t={time.monotonic():.4f} sid={_sid8} stop={result['stop_reason']}", flush=True)
 
         if result["stop_reason"] != "tool_use":
-            final_text = result["text"] or ""
+            raw_text = result["text"] or ""
+            final_text = raw_text
 
             should_semantic_review = (
                 risk.level in (RiskLevel.HIGH, RiskLevel.CRITICAL)
@@ -485,6 +618,7 @@ async def run_agent(
                 final_text, user_message, conversation_history,
                 user_risk_history=should_semantic_review,
             )
+            print(f"[PERF] tag=meta_monitor_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
             final_text = _post_safety_check(final_text)
 
             if crisis_holding.active:
@@ -502,6 +636,7 @@ async def run_agent(
 
             return {
                 "text": final_text,
+                "raw_text": raw_text,
                 "emotion": bg_emotion,
                 "crisis_holding_active": crisis_holding.active,
                 "summary": new_summary,
@@ -529,9 +664,12 @@ async def run_agent(
             # OpenAI 格式：assistant message with tool_calls + 每个 tool 单独 message
             assistant_content = result["text"] or ""
             raw_choice = result["raw"].choices[0]
+            # 推理模型（v4-flash 等）的 reasoning_content 必须随消息透传，否则第二轮 API 报 400
+            reasoning_content = getattr(raw_choice.message, "reasoning_content", None)
             # 存储原始 assistant message 用于后续转换
             messages.append({"role": "assistant", "content": assistant_content,
-                             "_tool_calls_raw": raw_choice.message.tool_calls})
+                             "_tool_calls_raw": raw_choice.message.tool_calls,
+                             "_reasoning_content": reasoning_content})
             for tr in tool_results:
                 messages.append({
                     "role": "tool",
@@ -576,7 +714,7 @@ async def _background_assess(
                 '"emotion": {"primary": "情绪名", "intensity": 1-10}}'
             ),
             messages=[{"role": "user", "content": eval_input}],
-            max_tokens=200,
+            max_tokens=settings.small_max_tokens,
             model_override=light_model,
         )
         parsed = json.loads(result["text"].strip())
@@ -689,7 +827,7 @@ async def _meta_monitor(
                     f"最近对话上下文：{str(conversation_history[-6:])[-500:]}"
                 ),
             }],
-            max_tokens=256,
+            max_tokens=settings.small_max_tokens,
             model_override=light_model,
         )
         parsed = _parse_json_safe(result["text"] or "")
@@ -709,7 +847,7 @@ async def _meta_monitor(
                         f"请输出修正后的回复（只输出修正后的文本，不要解释）"
                     ),
                 }],
-                max_tokens=1024,
+                max_tokens=settings.large_max_tokens,
             )
             return (regen["text"] or response_text).strip()
     except Exception:
