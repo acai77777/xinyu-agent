@@ -425,9 +425,6 @@ async def run_agent(
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
 
-    _sid8 = (session_id or "")[:8]
-    print(f"[PERF] tag=run_agent_enter t={time.monotonic():.4f} sid={_sid8}", flush=True)
-
     # === 启动 detect_crisis 异步任务（与后续 IO 并行）===
     crisis_task = asyncio.create_task(detect_crisis(user_message))
 
@@ -450,7 +447,6 @@ async def run_agent(
         notes = await load_or_create(session_id or "", user_id, turn_count)
         _notes_profile = notes.user_profile_summary
         _notes_issue = notes.presenting_issue
-        print(f"[PERF] tag=notes_load_done t={time.monotonic():.4f} sid={_sid8} warm={notes.is_warm()}", flush=True)
     except Exception as e:
         logger.warning(f"[Notes] Load failed: {e}")
 
@@ -482,7 +478,6 @@ async def run_agent(
 
     # === 等待 detect_crisis 完成 ===
     risk = await crisis_task
-    print(f"[PERF] tag=detect_crisis_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     # === 危机抱持模式处理（必要时取消 sub_agents）===
     if risk.level == RiskLevel.CRITICAL and risk.semantic_confirmed:
@@ -537,7 +532,6 @@ async def run_agent(
             )
         except Exception:
             pass
-    print(f"[PERF] tag=full_context_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     if multimodal_context:
         context_hints.extend(multimodal_context)
@@ -562,7 +556,6 @@ async def run_agent(
             pass
         except Exception as e:
             logger.warning(f"[SubAgent] Result collection failed: {e}")
-    print(f"[PERF] tag=sub_agents_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     # === 对话压缩（滑动窗口 + LLM 摘要）===
     new_summary = prior_summary  # 默认保持不变
@@ -578,7 +571,6 @@ async def run_agent(
     except Exception as e:
         logger.warning(f"[Compressor] Failed, using full history: {e}")
         compressed_history = conversation_history
-    print(f"[PERF] tag=compress_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
 
     # 摘要注入 system prompt（不构造假消息）
     if new_summary:
@@ -604,7 +596,6 @@ async def run_agent(
             max_tokens=settings.main_max_tokens,
             stream_cb=stream_cb,
         )
-        print(f"[PERF] tag=main_llm_done t={time.monotonic():.4f} sid={_sid8} stop={result['stop_reason']}", flush=True)
 
         if result["stop_reason"] != "tool_use":
             raw_text = result["text"] or ""
@@ -618,7 +609,6 @@ async def run_agent(
                 final_text, user_message, conversation_history,
                 user_risk_history=should_semantic_review,
             )
-            print(f"[PERF] tag=meta_monitor_done t={time.monotonic():.4f} sid={_sid8}", flush=True)
             final_text = _post_safety_check(final_text)
 
             if crisis_holding.active:
