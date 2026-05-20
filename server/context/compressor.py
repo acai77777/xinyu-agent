@@ -166,7 +166,7 @@ class ConversationCompressor:
             system=prompt,
             messages=[{"role": "user", "content": readable}],
             model_override=get_light_model(),
-            max_tokens=500,
+            max_tokens=settings.medium_max_tokens,
         )
         return result["text"] or ""
 
@@ -192,7 +192,7 @@ class ConversationCompressor:
             system=prompt,
             messages=[{"role": "user", "content": readable}],
             model_override=get_light_model(),
-            max_tokens=500,
+            max_tokens=settings.medium_max_tokens,
         )
         return result["text"] or old_summary
 

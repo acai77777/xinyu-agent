@@ -103,7 +103,7 @@ async def _llm_chat(
     }
     """
     if max_tokens is None:
-        max_tokens = settings.max_tokens
+        max_tokens = settings.main_max_tokens
 
     model = get_model(model_override)
     t0 = time.monotonic()
@@ -471,7 +471,7 @@ async def run_agent(
             system=context_enriched_prompt,
             messages=messages,
             tools=active_tools or None,
-            max_tokens=settings.max_tokens,
+            max_tokens=settings.main_max_tokens,
         )
 
         if result["stop_reason"] != "tool_use":
@@ -576,7 +576,7 @@ async def _background_assess(
                 '"emotion": {"primary": "情绪名", "intensity": 1-10}}'
             ),
             messages=[{"role": "user", "content": eval_input}],
-            max_tokens=200,
+            max_tokens=settings.small_max_tokens,
             model_override=light_model,
         )
         parsed = json.loads(result["text"].strip())
@@ -689,7 +689,7 @@ async def _meta_monitor(
                     f"最近对话上下文：{str(conversation_history[-6:])[-500:]}"
                 ),
             }],
-            max_tokens=256,
+            max_tokens=settings.small_max_tokens,
             model_override=light_model,
         )
         parsed = _parse_json_safe(result["text"] or "")
@@ -709,7 +709,7 @@ async def _meta_monitor(
                         f"请输出修正后的回复（只输出修正后的文本，不要解释）"
                     ),
                 }],
-                max_tokens=1024,
+                max_tokens=settings.large_max_tokens,
             )
             return (regen["text"] or response_text).strip()
     except Exception:
