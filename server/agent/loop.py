@@ -317,7 +317,10 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
             try:
                 await stream_cb(chunk_text)
             except Exception as e:
-                logger.warning(f"[stream_cb] error: {e}")
+                # 升级到 error + 堆栈：之前 warning 等级太低，"末尾丢字"线上排查时
+                # 看不到根因。chunk 丢失不致命（前端用 text_done.content 兜底），
+                # 但要让日志显形便于查"为什么 ws send_json 失败"。
+                logger.error(f"[stream_cb] failed chunk_len={len(chunk_text)}: {e}", exc_info=True)
 
         # reasoning_content delta —— 累积透传给下一轮 API（推理模型必需）
         chunk_reasoning = getattr(delta, "reasoning_content", None)
