@@ -190,6 +190,41 @@ class TestStreamingProtocol:
                     assert reply["type"] == "text_done"
                     assert reply["content"] == "听起来你最近压力很大。"
 
+    def test_ws_text_done_content_is_complete_not_truncated(self):
+        """
+        契约保险：text_done 的 content 必须等于完整 final_text，不能空/截断。
+
+        背景：Web 端"流字末尾几个字消失"bug 的根因是 stream_cb 异常被后端
+        warning 吞掉 + 前端只信累积 chunks。前端已修为优先用 content 兜底，
+        但前端能兜底的前提是后端 text_done 始终发完整 content。
+        如果未来有人把 text_done 的 content 改成空/截断（比如"省流量优化"），
+        前端无法补齐，bug 复现。这条测试就是不让这事发生。
+        """
+        full = "这是一段较长的文本，模拟流式输出末尾包含关键安抚语句。" * 3
+        mock_response = {
+            "text": full,
+            "raw_text": full,
+            "emotion": None,
+            "crisis_holding_active": False,
+        }
+        with _ws_patches(), \
+             patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
+            with TestClient(app) as client:
+                with client.websocket_connect("/ws/test-done-contract") as ws:
+                    ws.send_text(json.dumps({"type": "text", "content": "ping"}))
+                    ws.receive_json()  # thinking
+                    reply = ws.receive_json()
+                    assert reply["type"] == "text_done"
+                    # 1) content 不能为空字符串
+                    assert reply["content"], "text_done 的 content 不能为空——前端将无法兜底末尾丢字"
+                    # 2) content 必须严格等于完整 final_text（不能截断）
+                    assert reply["content"] == full, (
+                        "text_done 的 content 必须等于完整 final_text；"
+                        f"实际长度 {len(reply['content'])} vs 期望 {len(full)}"
+                    )
+                    # 3) 长度也必须严格相等
+                    assert len(reply["content"]) == len(full)
+
     def test_ws_text_patch_when_safety_rewrote(self):
         """_post_safety_check 改写过 → text_patch（前端整体替换 chunks）"""
         mock_response = {

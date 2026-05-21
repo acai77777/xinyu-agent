@@ -81,9 +81,11 @@ export default function ChatScreen() {
       return;
     }
 
-    // 流字结束（未被改写） —— 仅打 emotion / 收尾
+    // 流字结束（未被改写） —— 用后端完整 content 覆盖累积
+    // 后端 full_content 单调累加不受 stream_cb 异常影响，永远是完整版；
+    // 优先用 content 兜底"末尾 chunk 因网络抖动/stream_cb 异常丢失"导致的末尾丢字。
     if (lastMessage.type === 'text_done') {
-      finalizeStreamingMessage(null, lastMessage.emotion?.primary);
+      finalizeStreamingMessage(lastMessage.content || null, lastMessage.emotion?.primary);
       if (lastMessage.crisis_holding !== undefined) {
         setCrisisHolding(!!lastMessage.crisis_holding);
       }
