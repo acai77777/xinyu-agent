@@ -45,6 +45,9 @@ app/*.map
 # ===== 个人文档 =====
 interview-prep.md
 
+# ===== 生产数据快照（含用户真实对话，不可 commit） =====
+backstage-data/
+
 # ===== 临时文件 =====
 .playwright-mcp/
 claude-talk-to-figma-mcp/
