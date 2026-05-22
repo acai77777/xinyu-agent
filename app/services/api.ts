@@ -145,6 +145,21 @@ export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
+export interface UserProfile {
+  user_id: string;
+  username: string;
+  display_name: string;
+  created_at: string;
+}
+
+export async function fetchMe(): Promise<UserProfile> {
+  const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error(`获取用户信息失败: ${res.status}`);
+  return res.json();
+}
+
 // === 通用类型 ===
 
 interface UploadResult {
