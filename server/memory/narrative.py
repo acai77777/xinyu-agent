@@ -50,7 +50,9 @@ class NarrativeMemory:
     def __init__(self, db_path: str | None = None):
         if db_path is None:
             db_path = settings.sqlite_db_path
-        self.conn = sqlite3.connect(db_path)
+        # check_same_thread=False：allow asyncio.to_thread workers to call methods.
+        # sqlite3 默认 serialized 模式线程安全。
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self._init_table()
 
     def _init_table(self):

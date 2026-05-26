@@ -520,6 +520,12 @@ class TestRunAgentLogs:
          一度以为是死锁（实际处理 5-7 秒）。这些日志是排障下限。
     """
 
+    @pytest.fixture(autouse=True)
+    def _mock_book_kb(self):
+        # 避免 _inject_full_context → search_books_semantic → ChromaDB 触发在线下载 ONNX 嵌入模型
+        with patch("knowledge.knowledge_base.search_books_semantic", return_value=[]):
+            yield
+
     @pytest.mark.asyncio
     async def test_run_agent_logs_start_and_done(self, caplog):
         """单轮 end_turn：应打 start 和 done(iters=1)"""

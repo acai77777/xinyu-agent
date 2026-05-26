@@ -553,6 +553,21 @@ async def run_agent(
                 assessment = analysis.get("assessment", "")
                 if assessment:
                     context_hints.append(f"[情绪评估] {assessment}")
+                # 把本轮情绪写进叙事记忆——主题优先用 SessionNotes 的核心议题，
+                # 没有就用情绪本身分桶。耗时 < 10ms，显式 await 不阻塞 event loop。
+                if isinstance(bg_emotion, dict) and bg_emotion.get("primary"):
+                    try:
+                        from memory.writer import record_emotion_snapshot
+                        await record_emotion_snapshot(
+                            user_id=user_id,
+                            session_id=session_id or "",
+                            primary_emotion=bg_emotion.get("primary", ""),
+                            intensity=bg_emotion.get("intensity", 5),
+                            trigger=user_message,
+                            theme=_notes_issue or None,
+                        )
+                    except Exception as e:
+                        logger.warning(f"[Memory] snapshot dispatch failed: {e}")
             # 知识检索结果注入
             knowledge = sub_results.get("knowledge")
             if knowledge:
