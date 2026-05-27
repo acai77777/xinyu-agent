@@ -30,7 +30,73 @@ export default function ChatScreen() {
     setThinking, setCrisisHolding, setSession, clearCurrent, loadSessionMessages,
   } = useChatStore();
   const messages = useMessages();
-  const { send, lastMessage, isConnected } = useWebSocket(sessionId || '');
+
+  // 直接回调消费 ws 消息，绕开 useState 中转——
+  // React 18 在 native handler 里也会合并 setState，高频 chunks 中间值会被吞。
+  // zustand actions 引用稳定，放进 deps 不会反复重建 handler。
+  const handleWsMessage = useCallback((msg: any) => {
+    if (msg.type === 'status' && msg.content === 'thinking') {
+      setThinking(true);
+      return;
+    }
+
+    // 流字 chunk —— 累积到当前流式 assistant 消息
+    if (msg.type === 'text_chunk') {
+      setThinking(false);
+      appendDeltaToLastAssistant(msg.content || '');
+      return;
+    }
+
+    // 流字结束（未被改写） —— 用后端完整 content 覆盖累积
+    // 后端 full_content 单调累加不受 stream_cb 异常影响，永远是完整版；
+    // 优先用 content 兜底"末尾 chunk 因网络抖动/stream_cb 异常丢失"导致的末尾丢字。
+    if (msg.type === 'text_done') {
+      finalizeStreamingMessage(msg.content || null, msg.emotion?.primary);
+      if (msg.crisis_holding !== undefined) {
+        setCrisisHolding(!!msg.crisis_holding);
+      }
+      return;
+    }
+
+    // 流字结束（被审核改写） —— 用完整 content 替换累积内容
+    if (msg.type === 'text_patch') {
+      finalizeStreamingMessage(msg.content || '', msg.emotion?.primary);
+      if (msg.crisis_holding !== undefined) {
+        setCrisisHolding(!!msg.crisis_holding);
+      }
+      return;
+    }
+
+    // 老协议兜底（服务端回退到一次性发时不至于断）
+    if (msg.type === 'text') {
+      setThinking(false);
+      addMessage({
+        id: Date.now().toString(),
+        role: 'assistant',
+        type: 'text',
+        content: msg.content || '',
+        emotion: msg.emotion?.primary,
+        audioUrl: msg.audio_url,
+        timestamp: new Date(),
+      });
+      if (msg.crisis_holding !== undefined) {
+        setCrisisHolding(!!msg.crisis_holding);
+      }
+      return;
+    }
+
+    if (msg.type === 'transcription') {
+      addMessage({
+        id: Date.now().toString(),
+        role: 'user',
+        type: 'voice',
+        content: msg.content || '',
+        timestamp: new Date(),
+      });
+    }
+  }, [addMessage, appendDeltaToLastAssistant, finalizeStreamingMessage, setThinking, setCrisisHolding]);
+
+  const { send, isConnected } = useWebSocket(sessionId || '', handleWsMessage);
 
   // 创建新会话或加载已有会话
   useEffect(() => {
@@ -69,73 +135,6 @@ export default function ChatScreen() {
       loadSessionMessages(rawId);
     }
   }, [rawId]);
-
-  // 处理服务端 WebSocket 消息
-  useEffect(() => {
-    if (!lastMessage) return;
-
-    if (lastMessage.type === 'status' && lastMessage.content === 'thinking') {
-      setThinking(true);
-      return;
-    }
-
-    // 流字 chunk —— 累积到当前流式 assistant 消息
-    if (lastMessage.type === 'text_chunk') {
-      setThinking(false);
-      appendDeltaToLastAssistant(lastMessage.content || '');
-      return;
-    }
-
-    // 流字结束（未被改写） —— 用后端完整 content 覆盖累积
-    // 后端 full_content 单调累加不受 stream_cb 异常影响，永远是完整版；
-    // 优先用 content 兜底"末尾 chunk 因网络抖动/stream_cb 异常丢失"导致的末尾丢字。
-    if (lastMessage.type === 'text_done') {
-      finalizeStreamingMessage(lastMessage.content || null, lastMessage.emotion?.primary);
-      if (lastMessage.crisis_holding !== undefined) {
-        setCrisisHolding(!!lastMessage.crisis_holding);
-      }
-      return;
-    }
-
-    // 流字结束（被审核改写） —— 用完整 content 替换累积内容
-    if (lastMessage.type === 'text_patch') {
-      finalizeStreamingMessage(lastMessage.content || '', lastMessage.emotion?.primary);
-      if (lastMessage.crisis_holding !== undefined) {
-        setCrisisHolding(!!lastMessage.crisis_holding);
-      }
-      return;
-    }
-
-    // 老协议兜底（服务端回退到一次性发时不至于断）
-    if (lastMessage.type === 'text') {
-      setThinking(false);
-
-      const aiMsg: Message = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        type: 'text',
-        content: lastMessage.content || '',
-        emotion: lastMessage.emotion?.primary,
-        audioUrl: lastMessage.audio_url,
-        timestamp: new Date(),
-      };
-      addMessage(aiMsg);
-
-      if (lastMessage.crisis_holding !== undefined) {
-        setCrisisHolding(!!lastMessage.crisis_holding);
-      }
-    }
-
-    if (lastMessage.type === 'transcription') {
-      addMessage({
-        id: Date.now().toString(),
-        role: 'user',
-        type: 'voice',
-        content: lastMessage.content || '',
-        timestamp: new Date(),
-      });
-    }
-  }, [lastMessage]);
 
   // 发送文字消息
   const handleSend = useCallback(() => {
