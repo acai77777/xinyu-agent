@@ -27,7 +27,7 @@ export default function ChatScreen() {
   const {
     isThinking, crisisHolding,
     addMessage, appendDeltaToLastAssistant, finalizeStreamingMessage,
-    setThinking, setCrisisHolding, setSession, loadSessionMessages,
+    setThinking, setCrisisHolding, setSession, clearCurrent, loadSessionMessages,
   } = useChatStore();
   const messages = useMessages();
   const { send, lastMessage, isConnected } = useWebSocket(sessionId || '');
@@ -35,6 +35,11 @@ export default function ChatScreen() {
   // 创建新会话或加载已有会话
   useEffect(() => {
     if (rawId === 'new') {
+      // P1: 立即把 currentSessionId 切到 null，让 useMessages 返回 WELCOME，
+      // 避免 POST 期间渲染到上一个 session 的气泡。
+      setSessionId(null);
+      clearCurrent();
+
       // 创建新会话
       const token = getToken();
       fetch(`${API_BASE_URL}/api/history/sessions`, {
@@ -81,9 +86,11 @@ export default function ChatScreen() {
       return;
     }
 
-    // 流字结束（未被改写） —— 仅打 emotion / 收尾
+    // 流字结束（未被改写） —— 用后端完整 content 覆盖累积
+    // 后端 full_content 单调累加不受 stream_cb 异常影响，永远是完整版；
+    // 优先用 content 兜底"末尾 chunk 因网络抖动/stream_cb 异常丢失"导致的末尾丢字。
     if (lastMessage.type === 'text_done') {
-      finalizeStreamingMessage(null, lastMessage.emotion?.primary);
+      finalizeStreamingMessage(lastMessage.content || null, lastMessage.emotion?.primary);
       if (lastMessage.crisis_holding !== undefined) {
         setCrisisHolding(!!lastMessage.crisis_holding);
       }

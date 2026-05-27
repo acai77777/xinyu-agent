@@ -10,6 +10,7 @@ interface ChatState {
   crisisHolding: boolean;
 
   setSession: (sessionId: string) => void;
+  clearCurrent: () => void;
   addMessage: (message: Message) => void;
   appendDeltaToLastAssistant: (delta: string) => void;
   finalizeStreamingMessage: (finalContent: string | null, emotion?: string) => void;
@@ -35,8 +36,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setSession: (sessionId) => {
     const state = get();
-    // 如果该 session 没有消息，初始化为欢迎消息
-    if (!state.messagesBySession[sessionId]) {
+    const existing = state.messagesBySession[sessionId];
+
+    // P2: 切入前清掉目标 session 末尾的 isStreaming 残留——
+    // 用户上次离开时流字没 finalize，半成品挂在末尾，再进来不应再出现。
+    let cleaned: Message[] | undefined = existing;
+    if (existing && existing.length > 0) {
+      const last = existing[existing.length - 1];
+      if (last && last.role === 'assistant' && last.isStreaming) {
+        cleaned = existing.slice(0, -1);
+      }
+    }
+
+    if (!cleaned) {
       set({
         currentSessionId: sessionId,
         messagesBySession: {
@@ -47,9 +59,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         crisisHolding: false,
       });
     } else {
-      set({ currentSessionId: sessionId, isThinking: false, crisisHolding: false });
+      set({
+        currentSessionId: sessionId,
+        messagesBySession:
+          cleaned === existing
+            ? state.messagesBySession
+            : { ...state.messagesBySession, [sessionId]: cleaned },
+        isThinking: false,
+        crisisHolding: false,
+      });
     }
   },
+
+  // P1: 把 currentSessionId 切到 null，让 useMessages 返回 WELCOME，
+  // 用于 /chat/new 走 POST 期间避免显示上一个 session 的气泡。
+  clearCurrent: () => set({ currentSessionId: null, isThinking: false, crisisHolding: false }),
 
   addMessage: (message) =>
     set((state) => {
