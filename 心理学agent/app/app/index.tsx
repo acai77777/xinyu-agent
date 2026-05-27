@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Linking,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +23,9 @@ export default function HomeScreen() {
   const [todayScore, setTodayScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [sessionsLoading, setSessionsLoading] = useState(true);
+  // 首次加载才显示 ActivityIndicator;后续每次焦点回来都静默刷新,
+  // 否则用户从 /chat 返回时列表会闪一下空白。
+  const [firstLoadDone, setFirstLoadDone] = useState(false);
 
   // 加载今日心情
   useEffect(() => {
@@ -37,7 +39,6 @@ export default function HomeScreen() {
 
   // 加载最近会话
   const loadSessions = useCallback(() => {
-    setSessionsLoading(true);
     const token = getToken();
     fetch(`${API_BASE_URL}/api/history/sessions`, {
       headers: {
@@ -48,10 +49,11 @@ export default function HomeScreen() {
       .then((res) => res.json())
       .then((data) => setSessions(data.sessions || []))
       .catch(() => {})
-      .finally(() => setSessionsLoading(false));
+      .finally(() => setFirstLoadDone(true));
   }, []);
 
-  useEffect(() => { loadSessions(); }, []);
+  // 每次首页重获焦点都重拉:从 /chat 返回时把新建/更新的 session 同步过来。
+  useFocusEffect(useCallback(() => { loadSessions(); }, [loadSessions]));
 
   const handleMoodSubmit = async (score: number) => {
     try {
@@ -140,7 +142,7 @@ export default function HomeScreen() {
 
         <Text style={styles.sectionTitle}>最近对话</Text>
         <View style={styles.sessionList}>
-          {sessionsLoading ? (
+          {!firstLoadDone ? (
             <ActivityIndicator color={Colors.primary} style={{ marginTop: 20 }} />
           ) : sessions.length === 0 ? (
             <TouchableOpacity
@@ -175,6 +177,14 @@ export default function HomeScreen() {
             ))
           )}
         </View>
+
+        <TouchableOpacity
+          style={styles.icpFooter}
+          onPress={() => Linking.openURL('https://beian.miit.gov.cn')}
+          activeOpacity={0.6}
+        >
+          <Text style={styles.icpText}>粤ICP备2026021933号-1</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       <TouchableOpacity
@@ -244,8 +254,17 @@ const styles = StyleSheet.create({
   },
   sessionList: {
     paddingHorizontal: 20,
-    paddingBottom: 100,
+    paddingBottom: 20,
     gap: 10,
+  },
+  icpFooter: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingBottom: 100,
+  },
+  icpText: {
+    fontSize: 12,
+    color: Colors.textTertiary,
   },
   emptyCard: {
     alignItems: 'center',
