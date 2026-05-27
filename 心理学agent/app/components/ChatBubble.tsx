@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   },
   bubbleText: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 20,
     color: Colors.text,
     letterSpacing: -0.1,
   },
