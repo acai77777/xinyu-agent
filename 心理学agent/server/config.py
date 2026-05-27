@@ -60,8 +60,8 @@ class Settings(BaseSettings):
     max_conversation_turns: int = 50
 
     # 对话压缩
-    compress_threshold: int = 10        # 超过此轮数触发压缩
-    compress_keep_recent: int = 6       # 保留最近 N 轮原始对话
+    compress_threshold: int = 8         # 超过此轮数触发压缩(第 9 轮首次触发)
+    compress_keep_recent: int = 3       # 保留最近 N 轮原始对话(原 6,减少长回复风格污染)
     sub_agent_timeout: int = 15         # 子 Agent 最大等待秒数（推理模型单次 5-7s，留余量）
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

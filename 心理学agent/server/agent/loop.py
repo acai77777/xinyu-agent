@@ -317,7 +317,10 @@ async def _deepseek_chat(system, messages, tools, max_tokens, model_override, st
             try:
                 await stream_cb(chunk_text)
             except Exception as e:
-                logger.warning(f"[stream_cb] error: {e}")
+                # 升级到 error + 堆栈：之前 warning 等级太低，"末尾丢字"线上排查时
+                # 看不到根因。chunk 丢失不致命（前端用 text_done.content 兜底），
+                # 但要让日志显形便于查"为什么 ws send_json 失败"。
+                logger.error(f"[stream_cb] failed chunk_len={len(chunk_text)}: {e}", exc_info=True)
 
         # reasoning_content delta —— 累积透传给下一轮 API（推理模型必需）
         chunk_reasoning = getattr(delta, "reasoning_content", None)
@@ -424,6 +427,9 @@ async def run_agent(
         tools = TOOLS
     if system_prompt is None:
         system_prompt = SYSTEM_PROMPT
+
+    sid8 = (session_id or "anon")[:8]
+    logger.info(f"[Agent] {sid8} run_agent start text_len={len(user_message or '')}")
 
     # === 启动 detect_crisis 异步任务（与后续 IO 并行）===
     crisis_task = asyncio.create_task(detect_crisis(user_message))
@@ -547,6 +553,21 @@ async def run_agent(
                 assessment = analysis.get("assessment", "")
                 if assessment:
                     context_hints.append(f"[情绪评估] {assessment}")
+                # 把本轮情绪写进叙事记忆——主题优先用 SessionNotes 的核心议题，
+                # 没有就用情绪本身分桶。耗时 < 10ms，显式 await 不阻塞 event loop。
+                if isinstance(bg_emotion, dict) and bg_emotion.get("primary"):
+                    try:
+                        from memory.writer import record_emotion_snapshot
+                        await record_emotion_snapshot(
+                            user_id=user_id,
+                            session_id=session_id or "",
+                            primary_emotion=bg_emotion.get("primary", ""),
+                            intensity=bg_emotion.get("intensity", 5),
+                            trigger=user_message,
+                            theme=_notes_issue or None,
+                        )
+                    except Exception as e:
+                        logger.warning(f"[Memory] snapshot dispatch failed: {e}")
             # 知识检索结果注入
             knowledge = sub_results.get("knowledge")
             if knowledge:
@@ -582,13 +603,25 @@ async def run_agent(
     if context_hints:
         context_enriched_prompt += "\n\n" + "\n".join(context_hints)
 
-    messages = compressed_history + [{"role": "user", "content": user_message}]
+    # 字数硬约束:挂到最近 user 消息末尾,LLM 注意力焦点。
+    # 仅 system prompt 在长上下文(>3000 字)中会被稀释(jsonl 数据 Q4 中位 335 字,
+    # 已远超 system 里的"100~200 字"约束),必须把约束推到 messages 末尾才挡得住。
+    # user_message 是临时变量,这个 reminder 不污染 conversation_history。
+    LENGTH_REMINDER = (
+        "\n\n---\n"
+        "[系统约束·本次回复必须 ≤300 字 · 接近 250 字时立即收束 · 违反视为失败回复]"
+    )
+    messages = compressed_history + [
+        {"role": "user", "content": user_message + LENGTH_REMINDER}
+    ]
 
     # 危机抱持模式下禁用工具
     active_tools = [] if crisis_holding.active else tools
 
     # === Agent 循环 ===
+    iters = 0
     while True:
+        iters += 1
         result = await _llm_chat(
             system=context_enriched_prompt,
             messages=messages,
@@ -623,6 +656,11 @@ async def run_agent(
                         bg_emotion = analysis.get("emotion")
                 except Exception:
                     pass
+
+            logger.info(
+                f"[Agent] {sid8} run_agent done stop=end_turn iters={iters} "
+                f"text_len={len(final_text)} crisis={crisis_holding.active}"
+            )
 
             return {
                 "text": final_text,
