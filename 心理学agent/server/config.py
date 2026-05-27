@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     small_max_tokens: int = 1024    # 短判断/分类
     medium_max_tokens: int = 2048   # 中等生成
     large_max_tokens: int = 4096    # 长生成
-    main_max_tokens: int = 1024     # 主对话——硬上限 ≈700 字,与 prompt 100~200 字软约束配套
+    main_max_tokens: int = 512      # 主对话——DeepSeek 中文 1 token≈1.5 字符,硬上限 ≈340 字
     llm_timeout: int = 60  # LLM 调用超时秒数
 
     # 服务配置
