@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 
+from config import settings
 from db import get_db
 from llm_client import get_light_model, get_light_client
 
@@ -107,7 +108,7 @@ async def generate_session_strategy(
         result = await _llm_chat(
             system=SESSION_STRATEGY_PROMPT,
             messages=[{"role": "user", "content": user_input}],
-            max_tokens=600,
+            max_tokens=settings.medium_max_tokens,
             model_override=light_model,
         )
 

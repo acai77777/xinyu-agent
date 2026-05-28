@@ -124,7 +124,7 @@ class SubAgentOrchestrator:
                 system=system,
                 messages=[{"role": "user", "content": eval_input}],
                 model_override=get_light_model(),
-                max_tokens=200,
+                max_tokens=settings.small_max_tokens,
             )
             parsed = json.loads(result["text"].strip())
             assessment = parsed.get("assessment", "")
@@ -181,7 +181,7 @@ class SubAgentOrchestrator:
                 ),
                 messages=[{"role": "user", "content": "\n".join(candidates)}],
                 model_override=get_light_model(),
-                max_tokens=200,
+                max_tokens=settings.small_max_tokens,
             )
             return result["text"]
         except Exception:
