@@ -1,0 +1,318 @@
+{
+  "book": "认知行为疗法",
+  "author": "Aaron T. Beck",
+  "source_books": ["认知行为疗法基础（Judith Beck）", "认知行为疗法入门（郭召良）"],
+  "topics": {
+    "cognitive_model": {
+      "title": "贝克认知模型",
+      "title_en": "Beck's Cognitive Model",
+      "plain_explanation": "我们的感受很大程度上来自我们怎么想。同一件事情，用不同的方式去看，感受就会很不同。",
+      "metaphor": "就像戴了一副有色眼镜——透过灰色镜片看世界，一切都是灰暗的。但如果我们知道自己戴着眼镜，就可以试着把它摘下来看看。",
+      "key_principles": [
+        "认知（想法）影响情绪和行为",
+        "认知可以被识别和监控",
+        "认知可以通过检验和挑战来改变",
+        "改变认知会带来情绪和行为的改善"
+      ],
+      "subtopics": {
+        "automatic_thoughts": {
+          "title": "自动思维",
+          "title_en": "Automatic Thoughts",
+          "explanation": "面对具体情境时，脑海中快速、自发出现的想法或画面。它们像弹幕一样一闪而过，大多数人根本注意不到它们的存在。我们容易误以为是事件本身让我们痛苦，实际上是我们对事件的想法引发了情绪。",
+          "metaphor": "像弹幕一样飘过脑海——它们自动出现，但你不一定要认同每一条。",
+          "practice": "通过思维记录表帮助捕捉自动思维，引导区分'事件'和'对事件的想法'"
+        },
+        "intermediate_beliefs": {
+          "title": "中间信念",
+          "title_en": "Intermediate Beliefs",
+          "explanation": "介于自动思维和核心信念之间的'生活规则'。通常以条件句出现，比如'如果我让别人满意，我就会被接受'，或以'应该''必须'形式出现。",
+          "forms": ["条件假设（如果...那么...）", "规则（应该/必须...）", "态度（...是可怕的）"],
+          "practice": "使用下箭头技术从自动思维逐层追溯到中间信念"
+        },
+        "core_beliefs": {
+          "title": "核心信念",
+          "title_en": "Core Beliefs / Schemas",
+          "explanation": "关于自我、他人和世界的最深层、最根本的信念。通常在童年时期通过重要经历形成，并被当事人视为'绝对的真理'。最常见的消极核心信念可概括为：'我不可爱'（人际相关）和'我没能力'（胜任力相关）。",
+          "practice": "使用下箭头技术追溯核心信念。核心信念一旦被激活会产生强烈情绪反应，需做好情绪管理准备。"
+        }
+      }
+    },
+    "cognitive_triad": {
+      "title": "认知三联征",
+      "title_en": "Beck's Cognitive Triad",
+      "plain_explanation": "抑郁症患者通常同时持有三方面的消极看法，形成一个'负面三角'。",
+      "dimensions": [
+        {"aspect": "对自我", "negative_view": "认为自己无能、无价值、有缺陷", "example": "我是个失败者"},
+        {"aspect": "对世界", "negative_view": "认为世界充满障碍、不公、令人失望", "example": "没有人理解我"},
+        {"aspect": "对未来", "negative_view": "认为未来只有痛苦、绝望", "example": "事情永远不会好起来"}
+      ]
+    },
+    "abc_model": {
+      "title": "ABC理论",
+      "title_en": "ABC Model (ABCDE)",
+      "author": "Albert Ellis",
+      "plain_explanation": "不是事件本身让我们痛苦，而是我们对事件的信念/看法导致了情绪和行为反应。",
+      "philosophy": "困扰我们的不是事物本身，而是我们对事物的看法。——爱比克泰德",
+      "components": [
+        {"letter": "A", "name": "激发事件", "name_en": "Activating Event", "desc": "发生了什么事"},
+        {"letter": "B", "name": "信念/想法", "name_en": "Beliefs", "desc": "你对这件事怎么想的"},
+        {"letter": "C", "name": "后果/结果", "name_en": "Consequences", "desc": "你的情绪反应和行为反应"},
+        {"letter": "D", "name": "辩驳/质疑", "name_en": "Disputation", "desc": "挑战和反驳非理性信念"},
+        {"letter": "E", "name": "有效的新信念", "name_en": "Effective New Beliefs", "desc": "建立更合理的替代信念"}
+      ],
+      "example": {
+        "A": "朋友没回我的消息",
+        "B": "她一定是讨厌我了",
+        "C": "焦虑、难过、反复查看手机",
+        "D": "有没有其他可能？她可能在忙？",
+        "E": "她可能只是在忙，不回消息不一定代表讨厌我"
+      }
+    },
+    "cognitive_distortions_detailed": {
+      "title": "认知扭曲详解",
+      "title_en": "Cognitive Distortions",
+      "plain_explanation": "一系列习惯性的、不准确的思维模式，让人倾向于以比实际更消极的方式解读事情。它们往往自动发生，在压力、焦虑或抑郁时尤为频繁。",
+      "distortions": [
+        {"key": "all_or_nothing", "name": "全或无思维", "explanation": "只看到两个极端，没有中间地带", "example": "这次没考满分，我就是个废物"},
+        {"key": "overgeneralization", "name": "过度概括", "explanation": "从一个负面事件推断出普遍性结论", "example": "他拒绝了我，我永远不会被爱"},
+        {"key": "mental_filter", "name": "心理过滤", "explanation": "只关注负面细节，忽视全部正面信息", "example": "20条好评和1条差评，只记得那条差评"},
+        {"key": "disqualifying_positive", "name": "否定正面", "explanation": "把正面经历说成'不算数'", "example": "他夸我只是客气而已"},
+        {"key": "mind_reading", "name": "读心术", "explanation": "假定别人在想负面的事情", "example": "他皱了下眉头，肯定觉得我很蠢"},
+        {"key": "fortune_telling", "name": "预言家谬误", "explanation": "预言坏事一定会发生", "example": "这个面试我肯定通不过"},
+        {"key": "catastrophizing", "name": "灾难化", "explanation": "总是想到最坏的结果", "example": "头痛了一下，会不会是脑肿瘤"},
+        {"key": "emotional_reasoning", "name": "情绪推理", "explanation": "把感觉当事实", "example": "我觉得自己很笨，所以我一定是笨的"},
+        {"key": "should_statements", "name": "应该陈述", "explanation": "用应该、必须来要求自己或他人", "example": "我不应该犯错"},
+        {"key": "labeling", "name": "贴标签", "explanation": "给自己或他人贴上全面否定的标签", "example": "我就是个loser"},
+        {"key": "personalization", "name": "个人化", "explanation": "把不属于自己的责任揽到自己身上", "example": "团队失败了，都是我的错"},
+        {"key": "minimization", "name": "最小化", "explanation": "缩小自己的成就和优点", "example": "这没什么，谁都能做到"},
+        {"key": "control_fallacy", "name": "控制谬误", "explanation": "要么觉得无能为力，要么觉得全是自己造成的", "example": "我什么都改变不了"},
+        {"key": "fairness_fallacy", "name": "公平谬误", "explanation": "强烈觉得事情应该公平", "example": "我付出这么多，他却不领情"},
+        {"key": "blaming", "name": "指责", "explanation": "把问题完全归咎于别人或自己", "example": "都怪他我才会这样"}
+      ]
+    },
+    "techniques": {
+      "title": "CBT核心技术",
+      "title_en": "Core CBT Techniques",
+      "items": {
+        "socratic_questioning": {
+          "title": "苏格拉底式提问",
+          "title_en": "Socratic Questioning",
+          "explanation": "通过精心设计的开放式问题，引导来访者自己去发现和思考，而非直接告诉答案。",
+          "question_types": [
+            {"type": "检验证据", "example": "支持这个想法的证据是什么？反对的证据又有哪些？"},
+            {"type": "探索替代", "example": "还有没有其他可能的解释？"},
+            {"type": "评估后果", "example": "最坏的结果是什么？最好的呢？最可能的呢？"},
+            {"type": "检验有用性", "example": "这样想对你有帮助吗？"},
+            {"type": "换位思考", "example": "如果你最好的朋友遇到同样的情况，你会对TA说什么？"},
+            {"type": "追溯根源", "example": "你第一次有这种想法是什么时候？"}
+          ],
+          "principles": ["真诚的好奇心而非质问", "开放性问题为主", "目标是引导发现不是提供答案", "循序渐进从表层到深层"]
+        },
+        "thought_record": {
+          "title": "思维记录表",
+          "title_en": "Thought Record",
+          "explanation": "CBT中最经典的工具。来访者记录具体情境、自动思维、情绪反应，然后寻找证据、生成更平衡的替代想法。",
+          "seven_columns": [
+            {"step": 1, "name": "情境", "desc": "什么时候？在哪里？发生了什么？"},
+            {"step": 2, "name": "自动思维", "desc": "脑子里闪过什么想法/画面？"},
+            {"step": 3, "name": "情绪", "desc": "什么情绪？强度多少（0-100）？"},
+            {"step": 4, "name": "支持证据", "desc": "什么证据支持这个想法？"},
+            {"step": 5, "name": "反驳证据", "desc": "什么证据不支持这个想法？"},
+            {"step": 6, "name": "替代想法", "desc": "更平衡的看法是什么？"},
+            {"step": 7, "name": "情绪变化", "desc": "现在情绪如何？强度多少（0-100）？"}
+          ],
+          "research": "使用思维记录表的治疗效果量（d=1.08）几乎是不使用的两倍（d=0.63）"
+        },
+        "behavioral_experiment": {
+          "title": "行为实验",
+          "title_en": "Behavioral Experiments",
+          "explanation": "有计划的体验式活动，用事实来检验信念是否成立。被认为是CBT中改变认知最强有力的方法。",
+          "steps": ["识别目标信念", "设计实验", "预测结果", "执行实验", "记录实际结果", "反思与总结"],
+          "research": "行为实验比思维记录表更快引发信念改变"
+        },
+        "behavioral_activation": {
+          "title": "行为激活",
+          "title_en": "Behavioral Activation",
+          "explanation": "针对抑郁的有效技术。打破'不想动→什么都不做→更加抑郁→更不想动'的恶性循环。核心思路：不等心情好了再行动，而是先行动起来，心情会逐渐改善。",
+          "metaphor": "不是等有动力才做，而是做了才有动力。",
+          "methods": ["活动监控（记录愉悦度和成就感）", "活动安排", "分级任务安排", "价值导向行动"]
+        },
+        "exposure_therapy": {
+          "title": "暴露疗法",
+          "title_en": "Exposure Therapy",
+          "explanation": "系统性地面对引发恐惧和回避的刺激，打破'恐惧→回避→恐惧加剧'的循环。",
+          "types": [
+            {"type": "现场暴露", "desc": "在真实环境中直接面对恐惧对象"},
+            {"type": "想象暴露", "desc": "在脑海中想象恐惧场景"},
+            {"type": "内感受暴露", "desc": "主动引发恐惧相关的身体感觉"},
+            {"type": "虚拟现实暴露", "desc": "使用VR技术模拟恐惧场景"}
+          ],
+          "note": "现代暴露疗法核心机制是'预期违反'而非'焦虑习惯化'"
+        },
+        "graded_task": {
+          "title": "分级任务安排",
+          "title_en": "Graded Task Assignment",
+          "explanation": "把压倒性的大任务拆分成从易到难的小步骤，像爬梯子一样，每完成一个台阶都增加自信和掌控感。",
+          "steps": ["确定目标任务", "拆成5-10个小步骤", "按难度排序", "每天安排1-2个步骤", "记录完成情况和情绪变化", "每周回顾调整"]
+        },
+        "downward_arrow": {
+          "title": "下箭头技术",
+          "title_en": "Downward Arrow Technique",
+          "explanation": "追溯深层信念的'挖掘工具'。从自动思维出发，不断追问'如果这是真的，那对你来说意味着什么？'，逐层深入直到触及核心信念。",
+          "example": [
+            "自动思维：我这次报告做得不好",
+            "→ 意味着领导会对我失望",
+            "→ 我会被开除",
+            "→ 核心信念：我是个没用的人"
+          ],
+          "caution": "核心信念伴随强烈情绪，建议在会谈前半段进行，留够时间处理情绪。不建议来访者独自进行。"
+        }
+      }
+    },
+    "session_structure": {
+      "title": "CBT会谈结构",
+      "title_en": "CBT Session Structure",
+      "plain_explanation": "CBT是高度结构化的治疗，每次会谈都有明确的流程，确保时间被有效利用。",
+      "phases": [
+        {"step": 1, "name": "心情检查", "desc": "来访者报告本周情绪状态", "time": "5分钟"},
+        {"step": 2, "name": "桥接上次", "desc": "回顾上次会谈要点", "time": "2-3分钟"},
+        {"step": 3, "name": "协作设置议程", "desc": "共同决定本次讨论什么", "time": "3-5分钟"},
+        {"step": 4, "name": "作业回顾", "desc": "检查上周作业完成情况", "time": "5-10分钟"},
+        {"step": 5, "name": "核心工作", "desc": "聚焦议程问题运用技术", "time": "20-30分钟"},
+        {"step": 6, "name": "布置新作业", "desc": "协商下周练习和任务", "time": "5分钟"},
+        {"step": 7, "name": "总结与反馈", "desc": "概括要点征询反馈", "time": "3-5分钟"}
+      ],
+      "research": "有结构化作业的治疗效果是无作业治疗的近两倍"
+    },
+    "cbt_models": {
+      "title": "CBT三大工作模型",
+      "title_en": "CBT Working Models: Flowchart, Loop, and T-Model",
+      "source": "认知行为疗法入门（郭召良）第2章",
+      "plain_explanation": "CBT有三种常用的模型来帮助来访者理解自己的心理问题。每种模型从不同角度呈现认知、情绪、行为之间的关系。",
+      "models": [
+        {
+          "name": "流程图模型",
+          "name_en": "Flowchart Model",
+          "desc": "情境→自动思维→情绪→行为，展示问题从触发到反应的线性过程",
+          "use": "适合初次解释CBT原理，帮助来访者理解'想法决定感受'"
+        },
+        {
+          "name": "环路模型",
+          "name_en": "Loop Model",
+          "desc": "认知、情绪、行为、身体反应形成循环——消极想法引发负面情绪，导致回避行为，又强化消极想法",
+          "use": "适合解释'恶性循环'和维持因素，帮助来访者理解问题为何持续"
+        },
+        {
+          "name": "T字模型",
+          "name_en": "T-Model",
+          "desc": "纵轴展示从核心信念→中间信念→自动思维的层级关系，横轴展示情境触发和情绪/行为反应",
+          "use": "适合个案概念化，帮助治疗师和来访者理解深层信念如何影响日常反应"
+        }
+      ],
+      "practice": "用流程图模型向来访者解释CBT原理，用环路模型分析维持因素，用T字模型做深层概念化"
+    },
+    "case_conceptualization": {
+      "title": "个案概念化",
+      "title_en": "Case Conceptualization",
+      "source": "认知行为疗法入门（郭召良）第4章",
+      "plain_explanation": "个案概念化是治疗师对来访者问题的全面理解框架——不仅理解'是什么问题'，还要理解'为什么会有这个问题'以及'问题是如何维持的'。",
+      "two_dimensions": [
+        {
+          "name": "横向概念化",
+          "desc": "分析当前的认知-情绪-行为循环：在某个情境下，自动思维是什么，引发了什么情绪和行为"
+        },
+        {
+          "name": "纵向概念化",
+          "desc": "追溯历史发展脉络：早年经历→核心信念的形成→中间信念/规则→当前的自动思维模式"
+        }
+      ],
+      "key_principles": [
+        "概念化是贯穿整个治疗的动态过程，不断修正和完善",
+        "概念化需要与来访者协作完成，确保来访者认同",
+        "好的概念化能指导治疗方向和技术选择"
+      ],
+      "practice": "评估性会谈后完成初步概念化，包括：主诉问题、诊断、触发情境、典型自动思维、可能的中间/核心信念、早年经历线索"
+    },
+    "compensation_strategies": {
+      "title": "补偿策略",
+      "title_en": "Compensatory Strategies",
+      "source": "认知行为疗法入门（郭召良）第7章",
+      "plain_explanation": "补偿策略是人们为了应对负性核心信念而发展出来的行为模式。比如相信'我不够好'的人可能拼命追求完美来补偿。这些策略暂时有用，但长期来看往往加剧了问题。",
+      "key_principles": [
+        "补偿策略是对核心信念的'过度纠正'",
+        "当补偿策略有效时，人表面上运作正常",
+        "当补偿策略因环境变化而失效时，心理问题就会出现",
+        "补偿策略本身可能成为新的问题来源（如完美主义导致拖延）"
+      ],
+      "common_types": [
+        {"belief": "我不够好", "strategy": "追求完美、过度努力", "risk": "疲惫、焦虑、拖延"},
+        {"belief": "我不被爱", "strategy": "讨好他人、回避冲突", "risk": "丧失自我、关系不对等"},
+        {"belief": "我无法控制", "strategy": "过度控制、强迫行为", "risk": "人际紧张、僵化"},
+        {"belief": "我很脆弱", "strategy": "回避挑战、依赖他人", "risk": "能力退化、自信下降"}
+      ],
+      "practice": "识别来访者的补偿策略→追溯其背后的核心信念→帮助来访者看到补偿策略的短期收益和长期代价"
+    },
+    "automatic_thought_intervention": {
+      "title": "自动思维干预四步流程",
+      "title_en": "Four-Step Automatic Thought Intervention",
+      "source": "认知行为疗法入门（郭召良）第5章",
+      "plain_explanation": "CBT处理自动思维有一套标准化的四步流程：识别→评估→评价→应用。就像处理一封可疑邮件：先发现它，再判断真假，然后写一封更合理的回复，最后在生活中使用新的理解。",
+      "four_steps": [
+        {"step": "识别", "desc": "捕捉自动思维——注意情绪波动时脑中闪过的想法", "tools": "情绪监测、思维日记"},
+        {"step": "评估", "desc": "评估自动思维的可信度（0-100%）和相关情绪的强度", "tools": "自动思维评估量表"},
+        {"step": "评价", "desc": "用证据检验自动思维的合理性——支持和反对的证据各有什么", "tools": "控辩方证据技术、发散思维、去灾难化"},
+        {"step": "应用", "desc": "形成更合理的替代想法，制作应对卡，在日常生活中练习", "tools": "应对卡、家庭作业"}
+      ],
+      "key_techniques": {
+        "evidence_examination": "控辩方证据技术——像律师一样列出支持和反对自动思维的证据",
+        "divergent_thinking": "发散思维——头脑风暴列出所有可能的解释",
+        "decatastrophizing": "去灾难化——最坏结果是什么？最好的呢？最可能的呢？",
+        "reattribution": "重新归因——除了'都是我的错'，还有哪些因素？"
+      },
+      "practice": "让来访者在本周记录3次情绪波动，用四步流程分析每次的自动思维"
+    },
+    "healthy_thinking_patterns": {
+      "title": "健康人格的十种思维方式",
+      "title_en": "Ten Healthy Thinking Patterns",
+      "source": "认知行为疗法入门（郭召良）第9章",
+      "plain_explanation": "CBT不仅仅是修正扭曲的思维，更重要的是培养健康的思维方式。这十种思维模式是心理健康者的共同特征，也是CBT的终极目标。",
+      "patterns": [
+        {"name": "控辩方思维", "desc": "看问题时同时考虑正反两方面证据，不偏听偏信"},
+        {"name": "可能区域思维", "desc": "看到不一样的未来和可能性，不把一种结果当作唯一结果"},
+        {"name": "弹性思维", "desc": "用'希望'代替'必须'，允许自己和他人不完美"},
+        {"name": "归因到位思维", "desc": "合理归因，不把所有责任揽在自己身上或推给别人"},
+        {"name": "温和评价思维", "desc": "对自己和他人使用温和而非极端的评价"},
+        {"name": "去灾难化思维", "desc": "评估最坏/最好/最可能的结果，不总往最坏处想"},
+        {"name": "行为归因思维", "desc": "评价行为而非人格——'这件事做得不好'而非'我是个笨蛋'"},
+        {"name": "接纳思维", "desc": "接受不可改变的事实，把精力放在可以改变的部分"},
+        {"name": "长远思维", "desc": "从更长远的时间维度看当下的困难"},
+        {"name": "感恩思维", "desc": "关注已拥有的而非缺失的，培养感恩的心态"}
+      ],
+      "practice": "选择一种你最缺乏的思维方式，在接下来一周中刻意练习，记录练习前后的感受变化"
+    },
+    "termination_relapse_prevention": {
+      "title": "结束会谈与复发预防",
+      "title_en": "Termination and Relapse Prevention",
+      "source": "认知行为疗法入门（郭召良）第10章",
+      "plain_explanation": "CBT的结束不是突然中止，而是一个有计划的过程。好的结束能帮助来访者成为'自己的治疗师'，在未来遇到困难时有能力自我调节。",
+      "termination_process": [
+        "评估结束时机——症状改善、来访者有信心应对",
+        "逐步减少会谈频率——从每周到每两周再到每月",
+        "回顾整个治疗过程——学到了什么、哪些策略最有用",
+        "制定应对未来问题的计划",
+        "安排巩固性会谈（结束后1-3个月）"
+      ],
+      "relapse_prevention": [
+        "识别个人的'高危信号'——哪些情境容易引发旧的思维模式",
+        "制作'应急工具箱'——收集在治疗中最有效的技术和应对卡",
+        "制定'如果...那么...'计划——提前设定应对策略",
+        "保持自我监测——定期检查情绪和思维状态"
+      ],
+      "key_principles": [
+        "问题并没有完结——结束治疗不等于问题完全消失",
+        "来访者已学会了应对问题的能力",
+        "偶尔的情绪波动是正常的，不代表'复发'"
+      ]
+    }
+  }
+}

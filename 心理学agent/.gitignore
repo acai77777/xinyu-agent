@@ -41,6 +41,7 @@ app/*.map
 # ===== 版权材料 =====
 *.pdf
 真实的幸福.txt
+server/data/knowledge/*_raw.txt
 
 # ===== 个人文档 =====
 interview-prep.md
