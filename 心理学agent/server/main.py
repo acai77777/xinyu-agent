@@ -1,7 +1,15 @@
 """
 FastAPI 入口——HTTP REST + WebSocket 双协议
 """
+import logging
 import os
+
+# 不配 basicConfig 时 root logger 级别是 WARNING，会吞掉所有 logger.info 关键运行日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
