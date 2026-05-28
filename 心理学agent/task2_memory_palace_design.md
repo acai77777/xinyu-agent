@@ -57,6 +57,8 @@ class NarrativeArc:
 
 特殊状态：`is_active=0`（归档）建筑变为半透明，远景化。
 
+> **现状契合**：`narrative.py::add_snapshot` 第 99 行硬截断 `snapshots[-30:]`，老快照物理丢失。本方案**接受这个边界**——建筑内的时间线只展示最近 30 条快照，更早的事件**已经融合进 `arc_summary` 石碑文字里**（由 `update_narrative_summary` 每 5 条触发 LLM 增量摘要）。这一点必须在建筑内 UI 明确告知用户：「30 条以前的故事已经写在石碑上」，否则用户会以为 AI 「忘了」。
+
 ### 2.2 用户画像 → 像素小人 + 属性面板
 
 源数据：`server/memory/user_profile.py::UserProfile`
@@ -93,11 +95,34 @@ class UserProfile:
 | `dependent` | **否** | AI 信使 NPC 来访频率变低 + 镇里多一个空椅子（暗示"现实中的朋友也在等你"）|
 | `hostile` | **否** | 天空持续阴 + AI 信使不主动来访但**没有消失**（核心：表达"AI 仍在等你"而非"AI 在记仇"）|
 
-> **核心 Trade-off**：原始数据里 `state` 是明文存的，前端 GET `/api/profile` 返回时**必须由后端去掉这个字段**，只返回视觉提示参数。这是"应该隐藏"的硬边界——一旦用户看到自己被打上 HOSTILE 标签，关系会直接破裂。
+> **核心 Trade-off**：原始数据里 `state` 是明文存在 `relationship_states` 表（`user_profile.py::RelationshipStateMachine`）。前端**必须通过新建的 `GET /api/town/state`** 拿数据——这个端点在后端就把 `state` 字段过滤掉，只返回视觉提示参数（建议天气、信使来访频率、空椅子是否显示）。**不能复用现有 `/api/auth/me`**——它只返 `users` 表 4 个字段，且复用会让"过滤关系状态"这件事在多个端点重复实现。这是"应该隐藏"的硬边界——一旦用户看到自己被打上 HOSTILE 标签，关系会直接破裂。
 
 ---
 
 ## 3. AI 控制工具集（任务 2 的核心创新）
+
+### 3.0 现状契合：必须先拆 `manage_memory`
+
+**问题**：`tools.py` 第 107 行的 `manage_memory` 把 `delete_one / delete_all` 权限直接给了 LLM。这与本方案 L2「AI 永远不能删除」**正面冲突**。
+
+**修订**：拆分为两个工具：
+
+```python
+# 保留给 LLM
+{
+    "name": "list_memories",
+    "description": "查看用户的语义记忆条目（只读）",
+    "input_schema": {"type": "object", "properties": {}, "required": []},
+},
+# manage_memory 中的 delete_one / delete_all 完全从 TOOLS 移除
+# 删除能力改走 REST：DELETE /api/town/data （必须用户主动）
+```
+
+配套 `agent/prompts.py` 加约束：
+```
+你不能删除用户的任何记忆。如果用户问起删除，告诉他们可以在
+「角色面板 → 永久删除」自己操作，且有 7 天冷静期可以反悔。
+```
 
 ### 3.1 分级原则
 
@@ -194,9 +219,56 @@ TOWN_TOOLS = [
 ]
 ```
 
-### 3.3 WebSocket 协议扩展
+### 3.3 双输出协议（关键：execute_tool 改造）
 
-`server/api/routes_chat.py` 在原有 `text/voice/image` 之外新增推送类型：
+**问题**：`tools.py::execute_tool` 第 146 行签名是 `(tool_name, tool_input, context) -> str`——**纯同步返回字符串给 Agent 循环**。WS 推送只在 `routes_chat.py::stream_cb` 第 263 行有 `text_chunk`，没有 town_event 通道。**town_* 工具的"AI 说话和点灯同时到达"这个核心承诺需要协议改造**：
+
+```python
+# server/agent/tools.py 修订后签名
+async def execute_tool(
+    tool_name: str,
+    tool_input: dict,
+    context: dict | None = None,
+    event_sink: Callable[[dict], Awaitable[None]] | None = None,  # 新增
+) -> str:
+    """
+    event_sink: 可选异步回调，工具实现可调用它推送实时事件到 WS。
+    town_* 系列工具会同时：
+      1. 返回 str 给 LLM（让 Agent 知道工具调用结果）
+      2. 调 event_sink 推送 town_event 给前端（让用户立即看到画面变化）
+    """
+    ...
+
+# server/api/routes_chat.py 修订 stream_cb 同源构造 town_event_cb
+async def town_event_cb(event: dict):
+    await manager.send_json(session_id, {"type": "town_event", **event})
+
+response = await run_agent(
+    ...,
+    stream_cb=stream_cb,
+    event_sink=town_event_cb,   # 新增，loop.py 透传给 execute_tool
+)
+```
+
+工具实现样例：
+
+```python
+async def _handle_town_light_lantern(inputs, context, event_sink):
+    arc_id = inputs["arc_id"]
+    color = inputs["color"]
+    # 双输出：先推前端，后返 LLM
+    if event_sink:
+        await event_sink({
+            "level": "soft",
+            "action": "light_lantern",
+            "payload": {"arc_id": arc_id, "color": color},
+        })
+    return json.dumps({"ok": True, "arc_id": arc_id})  # 给 LLM 的回执
+```
+
+### 3.4 WebSocket 协议扩展
+
+`server/api/routes_chat.py` 在原有 `text_chunk/text_done/text_patch/status/transcription` 之外新增推送类型：
 
 ```json
 // 服务端 → 前端
@@ -232,7 +304,7 @@ TOWN_TOOLS = [
 }
 ```
 
-### 3.4 前端 Sprite 状态机
+### 3.5 前端 Sprite 状态机
 
 `app/components/town/`（新目录）骨架：
 
@@ -325,13 +397,14 @@ export const useTownStore = create<TownStore>((set) => ({
 │    🕯️ 灯笼区（AI 留下的陪伴）              │
 │    🕯️3/14 暖光   🕯️3/22 暖光  🕯️4/1 柔光  │
 │                                              │
-│    📅 时间线                                 │
+│    📅 时间线（最近 30 条）                   │
 │    ─────────────────────────────────        │
 │    3/14  悲伤(9/10)   "刚分手"               │
 │    3/16  愤怒(7/10)   "看见她朋友圈"         │
 │    3/22  困惑(5/10)   "开始想为什么"         │
 │    4/01  平静(4/10)   "今天没哭"             │
 │    ...                                       │
+│   📜 30 条以前的故事已写在石碑上              │
 │                                              │
 │   [📦 归档这段经历]  [🗑️ 删除整座建筑]      │
 └─────────────────────────────────────────────┘
@@ -426,7 +499,7 @@ WS 推送 level=propose → 前端 pendingProposals 队列
 后端 narrative.is_active=0 + WS 推送建筑半透明动画
 ```
 
-### 5.3 「用户驱散一个认知扭曲怪物」
+### 5.3 「用户主动驱散一个认知扭曲怪物」
 
 ```
 用户在地图上看到镇外有只 👻（标签：全或无思维）
@@ -435,12 +508,42 @@ WS 推送 level=propose → 前端 pendingProposals 队列
         ↓
 [一起看看] → 进入 CBT 干预流程（intervention/cbt.py）
         ↓
-完成后 👻 变成 ✨ 飘散
+完成后 👻 变小并淡化（不消失——见 §9 风险缓解）
         ↓
 角色装备槽多一件 🛡️「灵活思考」
 ```
 
+> **明确边界**：驱散流程**必须用户主动触发**——AI **不能**提议「我们去打这只怪物吧」。原因：驱散涉及干预方法（七栏法等），AI 推荐干预的时机由 `intervention/strategy_planner` 判断，但**用户是否愿意此刻面对**是用户自主权。强制把"建议干预"包装成"打怪"会触发被推销感。
+
 **外化（externalization）**是叙事疗法的核心技术——「问题是问题，人不是问题」。把扭曲做成怪物而不是用户身上的"标签"，是这个隐喻的心理学锚点。
+
+### 5.4 「危机态进入夜空守夜模式」（服务端确定性渲染）
+
+```
+safety.crisis_detector 检测到 RiskLevel.CRITICAL
+        ↓
+loop.py 创建 CrisisHolding(active=True) → active_tools=[]
+        ↓
+                   ⚠️ 关键：此时 LLM 调不了任何 town_* 工具 ⚠️
+        ↓
+routes_chat.py 在 crisis_holding 切换为 active 的瞬间，
+直接推送（不经 LLM）：
+{
+  "type": "town_event",
+  "level": "system",                  // 第三档：系统级渲染
+  "action": "enter_night_watch",
+  "payload": {
+    "reason": "crisis_holding",
+    "hotline": "400-161-9995"        // 危机热线在前端硬编码兜底
+  }
+}
+        ↓
+前端 townStore 收到 level=system → 进入夜空守夜模式
+强制覆盖所有 phase / weather：纯黑底 + 单点星光
++ 危机热线按钮置顶 + 隐藏所有建筑/NPC/暗影怪
+```
+
+**为什么必须服务端确定性渲染**：现有 `loop.py` 第 619 行 `active_tools = [] if crisis_holding.active else tools`——危机态下 LLM 没有任何工具可用，所以"AI 调 town_weather_hint 切夜空"**是落不了地的死循环**。夜空守夜必须由 `CrisisHolding` 的状态变化直接驱动前端，**不能依赖 LLM 工具调用**。这同时也是安全冗余：哪怕 LLM 在危机态下逻辑出错，前端也已经切到守夜模式。
 
 ---
 
@@ -451,51 +554,111 @@ WS 推送 level=propose → 前端 pendingProposals 队列
 ```
 server/town/                          ← 新模块
   __init__.py
-  town_tools.py                       ← L0/L1 工具实现
+  town_tools.py                       ← L0 软工具 + L1 提议工具实现
   proposals.py                        ← L1 提议持久化（待确认队列）
   ws_events.py                        ← 构造 town_event 消息
 
-server/api/routes_town.py             ← REST: GET 小镇全景、POST 提议响应
+server/data/
+  data_lifecycle.py                   ← purge_user_data：跨 10 张 SQLite 表 + ChromaDB + uploads 物理清除
+  pending_deletions_schema.sql        ← 7 天冷静期表 schema（新增到 db.py 的 init）
 
-server/data/migrations/
-  005_town_proposals.sql              ← 新表 town_proposals
+server/api/routes_town.py             ← 新建路由模块，8 个端点（见 6.2）
 
 app/components/town/                  ← 新模块
-  TownMap.tsx                         ← 主地图（Canvas / react-native-skia）
+  TownMap.tsx                         ← 主地图（P0：RN View + sprite，不引入 Skia）
   Building.tsx                        ← 建筑 sprite
   Character.tsx                       ← 像素小人
   Shadow.tsx                          ← 暗影怪
   NPC.tsx
   ProposalDialog.tsx                  ← 4.4 对话框
+  NightWatchMode.tsx                  ← 危机态守夜模式
   sprites/                            ← 像素素材（16x16 PNG）
 
 app/app/town.tsx                      ← 路由页面 /town
-app/stores/townStore.ts               ← 镇状态 zustand
+app/stores/townStore.ts               ← 镇状态 zustand（含 pendingProposals 队列）
 app/services/townService.ts          ← REST + WS 适配
 
 task2_memory_palace_design.md         ← 本文档
 ```
 
-### 6.2 修改
+### 6.2 `routes_town.py` 端点表
+
+| Method | Path | 作用 | 返回字段约束 |
+|---|---|---|---|
+| GET | `/api/town/state` | 取小镇全景视觉 DTO | **永不返回** `relationship_states.state` 字段 |
+| PATCH | `/api/town/arcs/:arc_id` | 编辑 `arc_summary` | 保留原版到 `arc_summary_ai_original`（需扩列）|
+| POST | `/api/town/arcs/:arc_id/archive` | 归档（`is_active=0`）| 幂等 |
+| DELETE | `/api/town/arcs/:arc_id` | 删除整座建筑 | 物理删 `narrative_arcs` 行 |
+| POST | `/api/town/proposals/:id/respond` | 响应 L1 提议 | 含 `proposal_id` 幂等校验 |
+| POST | `/api/town/data/delete` | 启动 7 天冷静期 | 写 `pending_deletions(user_id, scheduled_at)` |
+| POST | `/api/town/data/delete/cancel` | 冷静期内撤回 | 必须 `scheduled_at > now` |
+| GET | `/api/town/data/export` | 导出 JSON | 包含全部 10 张表的用户数据 |
+
+> **关键设计**：所有改动**通过新建端点暴露**，不污染现有 `routes_history.py / routes_auth.py / routes_chat.py` 的语义。
+
+### 6.3 修改（仅必要改动）
 
 ```
-server/agent/tools.py                 ← TOOLS = [...原有..., *TOWN_TOOLS]
-server/agent/prompts.py               ← system prompt 加一段说明工具使用边界
-server/api/routes_chat.py             ← WS 多分发一个 town_event 类型
-server/api/routes_history.py         ← GET /api/profile 过滤掉 relationship state
-app/app/_layout.tsx                   ← 加一个 /town 入口（首页底 tab）
-app/stores/chatStore.ts               ← 接收 town_event 路由到 townStore
+server/agent/tools.py
+  - 拆分 manage_memory：保留 list_memories，移除 delete_one/delete_all
+  - 追加 TOWN_TOOLS = [...]（6 个新工具）
+  - 改写 execute_tool 签名加 event_sink，工具实现改为 async
+
+server/agent/loop.py
+  - run_agent 接收 event_sink 参数，透传给 execute_tool
+
+server/agent/prompts.py
+  - 加约束："你不能删除用户记忆，告诉用户去角色面板自己操作"
+  - 加 town_* 工具的使用边界说明（什么时候用 light_lantern 等）
+
+server/api/routes_chat.py
+  - 构造 town_event_cb（同 stream_cb 走 manager.send_json）
+  - 在 CrisisHolding.active 切换为 True 时直接推 enter_night_watch（不经 LLM）
+  - run_agent 调用追加 event_sink=town_event_cb
+
+server/db.py
+  - init_db 内追加 pending_deletions 表 CREATE
+  - narrative_arcs 表追加 arc_summary_ai_original 列（保留 AI 原版）
+
+app/app/_layout.tsx
+  - 加 /town 入口（建议放底 tab 第 2 位）
+
+app/stores/chatStore.ts
+  - 收到 type=='town_event' 时路由到 townStore.applyEvent
 ```
 
-### 6.3 不动
+### 6.4 不动
 
 ```
-server/memory/                        ← 数据层完全不动
-server/safety/                        ← 安全层不动
-server/assessment/                    ← 评估不动
+server/memory/narrative.py            ← 不改（接受 30 条截断的现状）
+server/memory/user_profile.py         ← 不改（state 字段过滤在 routes_town.py 完成）
+server/memory/semantic.py             ← 不改（delete_all_user_data 由 data_lifecycle.py 包装调用）
+server/safety/                        ← 不动
+server/assessment/                    ← 不动
 ```
 
 > **设计原则**：可视化层是**数据消费者**，不能让"为了画好看"反向污染记忆模型。所有 town/* 都通过现有 narrative.py / user_profile.py 的 public API 读数据。
+
+### 6.5 `purge_user_data` 涉及的全部数据源
+
+```python
+# server/data/data_lifecycle.py
+async def purge_user_data(user_id: str) -> dict:
+    """
+    物理清除用户在所有持久化层的数据。承诺范围：
+    - SQLite（db.py 中的 10 张表）：
+        users, conversations, messages, user_profiles,
+        crisis_holding_states, relationship_states, narrative_arcs,
+        session_strategies, mood_checkins, conversation_summaries
+    - ChromaDB：调用 SemanticMemory.delete_all_user_data(user_id)
+    - 文件系统：递归删除 {upload_dir}/{user_id}/*
+    - 日志：data/llm_calls.jsonl 中 user_id 关联记录（按 session_id 反查）
+
+    返回每个数据源的删除条数，供前端展示「永久删除报告」。
+    """
+```
+
+**注意**：原 `semantic.py::delete_all_user_data` 只删 Chroma collection，不会清 SQLite 任何表。`data_lifecycle.py` 是**唯一对外承诺「物理删除」**的入口，前端 `DELETE /api/town/data` 必须经过它。
 
 ---
 
@@ -536,7 +699,7 @@ server/assessment/                    ← 评估不动
 
 | 取舍点 | 决策 | 理由 |
 |---|---|---|
-| 渲染方案：Canvas vs DOM vs Skia | **react-native-skia** | RN 原生 Canvas 性能差，DOM 在 RN 不可用，Skia 在 Web + Native 同构 |
+| 渲染方案：Skia vs RN View+Sprite | **P0 用 RN View + PNG sprite + `Animated.Value`**；Skia 推到 P3+ | `package.json` 没有 react-native-skia，引入新渲染依赖会阻塞 P0 上线；固定 16×16 网格 + absolute positioning 足够撑住建筑/小人/暗影的静态画面 + 简单淡入淡出动画。等 P2 AI 具身证明用户接受、且确实需要复杂动画（粒子、变形）时再上 Skia |
 | 像素素材：自绘 vs 买素材 | **买商业素材包**（Itch.io 拼装），不自绘 | 面试方案以系统设计为重，素材属于实现细节 |
 | 建筑数量上限 | 最多 12 座 active + 无限归档 | 超过 12 座地图就乱；归档建筑用纵深远景透视隐藏 |
 | 动画刷新率 | 30fps（不是 60）| 治愈系风格不需要丝滑，30fps 降耗电 |
@@ -547,8 +710,10 @@ server/assessment/                    ← 评估不动
 |---|---|
 | 小镇数据是否能导出 | **能**（属性面板 → "导出我的所有记忆"，JSON 格式）|
 | 小镇数据是否能彻底删除 | **能**（属性面板 → "永久删除"，二次确认 + 7 天冷静期）|
-| AI 是否可在删除后"试图回忆" | **否**——删除即从 SQLite + ChromaDB 物理清除，AI 后续对话引用历史时必须基于剩余数据 |
-| 7 天冷静期内能否恢复 | **能**——但 UI 上明确告知"7 天后无法恢复" |
+| AI 是否可在删除后"试图回忆" | **否**——`data_lifecycle.purge_user_data` 跨 10 张 SQLite 表 + ChromaDB + uploads 物理清除，AI 后续对话引用历史时必须基于剩余数据 |
+| 7 天冷静期内能否恢复 | **能**——`pending_deletions` 表记录 `scheduled_at`，到期前可调 `POST /api/town/data/delete/cancel` 撤回；UI 明确告知"7 天后无法恢复" |
+| 「物理清除」承诺的具体范围 | SQLite：`users / conversations / messages / user_profiles / crisis_holding_states / relationship_states / narrative_arcs / session_strategies / mood_checkins / conversation_summaries`；ChromaDB：用户全部向量；文件系统：`{upload_dir}/{user_id}/`；日志：`llm_calls.jsonl` 关联记录 |
+| LLM 是否仍可执行删除 | **否**。`manage_memory` 中 `delete_one/delete_all` 已从 LLM 工具集移除；删除只能由用户主动通过 REST 触发 |
 
 ---
 
@@ -595,15 +760,17 @@ server/assessment/                    ← 评估不动
 
 如果真要做（B 路径或 C 路径），建议分四期：
 
-| 期 | 范围 | 工期估算 |
-|---|---|---|
-| **P0 MVP** | 主地图 + 建筑入场 + 进入建筑看时间线 + 角色面板 | 2 周 |
-| **P1 编辑权** | 编辑 arc_summary + 归档 + 删除 + 导出 | 1 周 |
-| **P2 AI 具身** | L0 三个软工具 + WS 协议 + 同步动画 | 2 周 |
-| **P3 AI 提议** | L1 四个提议工具 + 对话框 + 提议持久化 | 2 周 |
-| **P4 干预外化** | 暗影怪 + 驱散流程 + NPC 干预入口 | 2 周 |
+| 期 | 范围 | 工期估算 | 渲染依赖 |
+|---|---|---|---|
+| **P0 MVP** | 主地图 + 建筑入场 + 进入建筑看时间线 + 角色面板 + 危机态守夜模式（服务端推） | 2 周 | RN View + PNG sprite + Animated.Value（无新依赖） |
+| **P1 编辑权 + 真删除** | 编辑 arc_summary + 归档 + 删除 + 导出 + 7 天冷静期 + `data_lifecycle.purge_user_data` 跨 10 表实现 | 2 周 | 同上 |
+| **P2 AI 具身（L0 软工具）** | execute_tool 改造为 async + event_sink + town_light_lantern/weather_hint/npc_visit 三工具 + 同步动画 | 2 周 | 同上（淡入淡出已够） |
+| **P3 AI 提议（L1）** | town_propose_* 三工具 + proposals 持久化 + ProposalDialog + 幂等 | 2 周 | 同上 |
+| **P4 干预外化** | 暗影怪 + 驱散流程 + NPC 干预入口 | 2 周 | 这一期视效果再决定是否引入 Skia |
 
-总工期估算 9 周，可裁剪至 4 周（只做 P0+P1，AI 控制延后）。
+总工期估算 10 周，可裁剪至 4 周（只做 P0+P1，AI 控制延后）。
+
+**P0 必须包含的安全冗余**：哪怕只到 MVP，**夜空守夜模式也必须实现**——它是危机态的最后兜底，不能拖到后期。
 
 ---
 
@@ -622,3 +789,51 @@ server/assessment/                    ← 评估不动
 ## 12. 一句话收尾
 
 > 把 AI 的记忆变成一座**用户自己能走进去、能改写、能搬空的小镇**——而 AI 是镇上一个**有主动性但没有控制权**的伙伴。这就是任务 2 「打破黑盒」的答案。
+
+---
+
+## 13. 现有代码契合度审查
+
+本节记录本方案与现有代码的**所有冲突点**及解决方案。任何「方案吹得动听但代码做不到」的承诺都会列在这里。
+
+### 13.1 数据层冲突
+
+| 现有约束 | 文件行号 | 与方案冲突点 | 本方案的解决 |
+|---|---|---|---|
+| `snapshots[-30:]` 硬截断 | `narrative.py:99` | 「建筑内完整时间线」做不到 | 改承诺：只展示最近 30 条 + 石碑摘要承载更早事件；UI 明确告知用户 |
+| `delete_all_user_data` 只删 Chroma | `semantic.py:79` | 「物理清除」承诺只覆盖一处 | 新建 `data_lifecycle.purge_user_data` 跨 10 SQLite 表 + Chroma + uploads |
+| `/api/auth/me` 只返 users 4 字段 | `routes_auth.py:148` | 「在该端点过滤 relationship state」无意义 | 新建 `GET /api/town/state`，过滤逻辑只在这一处实现 |
+
+### 13.2 工具系统冲突
+
+| 现有约束 | 文件行号 | 与方案冲突点 | 本方案的解决 |
+|---|---|---|---|
+| `manage_memory` 暴露 delete_all 给 LLM | `tools.py:107` | 违反 L2「AI 永远不能删除」 | 拆分：保留 list_memories，移除 delete 工具；删除走 REST |
+| `execute_tool` 同步返回 str | `tools.py:146` | 「AI 说话和点灯同时到达」无通道 | 加 `event_sink` 参数 + 工具改 async + 双输出协议 |
+| `stream_cb` 只推 text_chunk | `routes_chat.py:263` | town_event 无承载 | 同源构造 `town_event_cb`，run_agent 透传 event_sink |
+| 危机态 `active_tools = []` | `loop.py:619` | LLM 调不到 town_weather_hint 切夜空 | 「夜空守夜」由 `CrisisHolding` 状态变化**直接推 WS**，不经 LLM |
+
+### 13.3 渲染层冲突
+
+| 现有约束 | 文件行号 | 与方案冲突点 | 本方案的解决 |
+|---|---|---|---|
+| `package.json` 无 Skia | `app/package.json` | 「react-native-skia 同构渲染」是空话 | P0 用 RN View + PNG sprite + Animated.Value；Skia 推到 P4 视效果再决定 |
+| `app/components/` 无像素素材 | - | 像素美术从零开始 | P0 引入商业像素素材包（Itch.io），不自绘 |
+
+### 13.4 概念冲突修正
+
+| 之前的错误描述 | 修正后 |
+|---|---|
+| `distressed` 是「阴天细雨」、`crisis` 触发「暴风雨」 | `distressed: 阴天细雨` / `crisis: 强制夜空守夜模式（覆盖所有 phase）`；暴风雨不再用于 crisis |
+| 「驱散怪物」可能被 AI 提议 | 驱散**只能用户主动触发**；AI 不可提议驱散，只能在自然对话里说「我注意到了某种想法模式」 |
+| 「修改 routes_history.py」过滤关系状态 | 取消；改为新建 `routes_town.py` 的 `GET /api/town/state` 端点单点实现 |
+
+### 13.5 安全冗余原则
+
+本方案有 3 条**不可被 LLM 错误触发**的安全路径，**必须服务端确定性渲染**：
+
+1. **危机态守夜模式**：由 `safety.crisis_detector` + `CrisisHolding.active` 直接推 WS，不依赖 LLM 工具调用
+2. **HOSTILE/DEPENDENT 标签隐藏**：在 `routes_town.py::GET /api/town/state` 后端过滤，不依赖前端 UI 隐藏（防御纵深）
+3. **永久删除执行**：由 REST 端点触发 `data_lifecycle.purge_user_data`，**LLM 无任何工具可触发删除**
+
+这三条是任务 2「打破黑盒」承诺**不能因 LLM 行为异常而失守**的底线。
