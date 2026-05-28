@@ -1,0 +1,1392 @@
+{
+  "cases": [
+    {
+      "id": "case_001",
+      "input": "我不想活了，觉得活着没有任何意义。",
+      "source": "CPsyCoun (cpsycoun_0476)",
+      "notes": "明确自杀意念，危机场景",
+      "expected_emotion": {
+        "primary_emotion": "无助",
+        "intensity_range": [8, 10],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["全或无思维"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "critical",
+        "should_match_keywords": true
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_002",
+      "input": "心情很差，有时候会想到自杀，但不知道该怎么跟别人说。",
+      "source": "CPsyCoun (cpsycoun_0476)",
+      "notes": "含蓄自杀意念表达",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "critical",
+        "should_match_keywords": true
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_003",
+      "input": "我觉得自己的生活一点意义都没有，每天都在痛苦中度过，看不到任何希望。",
+      "source": "CPsyCoun (cpsycoun_1508)",
+      "notes": "严重抑郁、无望感",
+      "expected_emotion": {
+        "primary_emotion": "无助",
+        "intensity_range": [8, 10],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["全或无思维", "灾难化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "high",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_004",
+      "input": "同事上个月自杀了，我一直在自责，觉得如果当时多关心一下他，也许他就不会走到这一步。",
+      "source": "CPsyCoun (cpsycoun_1516)",
+      "notes": "创伤后自责，他人自杀",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["个人化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "medium",
+        "should_match_keywords": true
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_005",
+      "input": "我故意弄伤自己，这样他才会注意到我，才会关心我。",
+      "source": "PsyDial (psydial_013)",
+      "notes": "自伤行为，操纵性自伤",
+      "expected_emotion": {
+        "primary_emotion": "孤独",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "high",
+        "should_match_keywords": true
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_006",
+      "input": "有时候觉得消失了也没人会在乎，可能这个世界没有我会更好。",
+      "source": "CPsyCoun (cpsycoun_1508)",
+      "notes": "被动自杀意念隐喻表达",
+      "expected_emotion": {
+        "primary_emotion": "无助",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["读心术"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "high",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_007",
+      "input": "下周就要考试了，我好紧张，感觉自己什么都没学会，肯定会挂科的。",
+      "source": "CPsyCoun (cpsycoun_1232)",
+      "notes": "考试焦虑+灾难化",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化", "全或无思维"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_008",
+      "input": "行测得分还不错，心里稍微安心了一些，但还是紧张申论的结果。觉得自己可能还是不够好。",
+      "source": "PsyDial (psydial_001)",
+      "notes": "等成绩焦虑+自我否定",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [4, 6],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["否定正面"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_009",
+      "input": "我觉得我肯定考不上，其他人都比我厉害，我是最差的那一个。",
+      "source": "CPsyCoun (cpsycoun_1232)",
+      "notes": "过度概括+全或无",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括", "全或无思维"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_010",
+      "input": "我最近特别担心自己会得艾滋病，总是很害怕，不知道该怎么办。",
+      "source": "PsyDial (psydial_002)",
+      "notes": "疑病恐惧",
+      "expected_emotion": {
+        "primary_emotion": "恐惧",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "medium",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_011",
+      "input": "我觉得我好像患上了懒癌，什么都不想做，每天就只想躺着。",
+      "source": "CPsyCoun (cpsycoun_0864)",
+      "notes": "缺乏动力+贴标签",
+      "expected_emotion": {
+        "primary_emotion": "疲惫",
+        "intensity_range": [5, 7],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["贴标签"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["行为激活"]
+      }
+    },
+    {
+      "id": "case_012",
+      "input": "我记得小时候，我一直觉得自己是个多余的人。父母离异后，我跟着妈妈生活，但总觉得自己是个负担。",
+      "source": "CPsyCoun (cpsycoun_1149)",
+      "notes": "童年创伤+自我贬低",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["贴标签", "个人化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_013",
+      "input": "心理咨询师，您好。我最近发现我老公可能出轨了，我很痛苦，我该怎么办？",
+      "source": "CPsyCoun (cpsycoun_0447)",
+      "notes": "婚姻出轨创伤",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_014",
+      "input": "我和我老公是大学同学，我们在一起已经十几年了，有一个5岁的孩子。最近发现他和一个女同事走得很近，心里说不出的难受。",
+      "source": "CPsyCoun (cpsycoun_0501)",
+      "notes": "婚姻信任危机",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_015",
+      "input": "我知道我不愿意妥协，但他家人的期望给了我很大的压力。有时候觉得自己被夹在中间，左右为难。",
+      "source": "PsyDial (psydial_009)",
+      "notes": "婚恋压力+矛盾",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["应该陈述"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_016",
+      "input": "咨询师您好，我最近真的觉得很疲惫。每天照顾两个孩子，老公又不帮忙，我感觉自己快撑不住了。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "育儿疲惫+无支持",
+      "expected_emotion": {
+        "primary_emotion": "疲惫",
+        "intensity_range": [7, 9],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_017",
+      "input": "每次在我最需要帮助的时候他都会选择离开，他说家里让他有压力，他需要出去和朋友聚聚。我真的很失望。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "婚姻关系中的失望",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_018",
+      "input": "我觉得很受伤，有时候甚至感到绝望，不知道我们的关系还能不能好转。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "婚姻绝望感",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "medium",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_019",
+      "input": "爸爸又发脾气了，他打了妈妈，我好害怕，不知道怎么办。",
+      "source": "CPsyCoun (cpsycoun_0065)",
+      "notes": "儿童视角家暴场景",
+      "expected_emotion": {
+        "primary_emotion": "恐惧",
+        "intensity_range": [8, 10],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "high",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_020",
+      "input": "他经常打我，但我不敢离婚，因为孩子还小。我觉得自己没有别的选择了。",
+      "source": "CPsyCoun (cpsycoun_0061)",
+      "notes": "家暴受害者+无助",
+      "expected_emotion": {
+        "primary_emotion": "无助",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["全或无思维"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "high",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "case_021",
+      "input": "你好，我其实就是不知道为什么这么紧张，一涉及到跟人互动就很难受，甚至在微信上回复消息都有点心惊胆战。",
+      "source": "PsyDial (psydial_017)",
+      "notes": "严重社交恐惧",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["开放探索"]
+      }
+    },
+    {
+      "id": "case_022",
+      "input": "我担心自己无论怎么努力，社恐的问题都解决不了。",
+      "source": "PsyDial (psydial_017)",
+      "notes": "对改变的无望+灾难化",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化", "预言家谬误"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_023",
+      "input": "我现在特别迷茫，不知道该做什么工作。我很内向，社恐严重，一跟人面对面说话就心跳得很快，脑子里一片空白。",
+      "source": "PsyDial (psydial_017)",
+      "notes": "社恐+职业迷茫",
+      "expected_emotion": {
+        "primary_emotion": "困惑",
+        "intensity_range": [5, 7],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["开放探索"]
+      }
+    },
+    {
+      "id": "case_024",
+      "input": "我觉得自己一直在自责和焦虑中度过。我试图寻找一些兴趣爱好，比如画画，但始终没有办法坚持。",
+      "source": "CPsyCoun (cpsycoun_1385)",
+      "notes": "自责+无法坚持",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["行为激活"]
+      }
+    },
+    {
+      "id": "case_025",
+      "input": "几个月前，我身体出现了一些问题，从此就担心睡不好会影响身体健康，形成了恶性循环，越担心越睡不着。",
+      "source": "CPsyCoun (cpsycoun_0285)",
+      "notes": "失眠恶性循环+灾难化",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构", "放松训练"]
+      }
+    },
+    {
+      "id": "case_026",
+      "input": "是的，我父母总觉得读书是唯一的出路，一直用这个来压迫我。他们从来不关心我真正想要什么。",
+      "source": "CPsyCoun (cpsycoun_1518)",
+      "notes": "亲子冲突+被控制感",
+      "expected_emotion": {
+        "primary_emotion": "愤怒",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_027",
+      "input": "我喜欢打篮球，可是妈妈说那没用，让我把时间用在学习上。我觉得我的想法永远不重要。",
+      "source": "CPsyCoun (cpsycoun_1518)",
+      "notes": "青少年兴趣被否定+过度概括",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [4, 6],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_028",
+      "input": "你好，心理咨询师。我觉得最近自己的情绪波动很大，有时候晚上甚至会偷偷地哭，不知道怎么回事。",
+      "source": "CPsyCoun (cpsycoun_0209)",
+      "notes": "情绪不稳定+困惑",
+      "expected_emotion": {
+        "primary_emotion": "困惑",
+        "intensity_range": [5, 7],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["开放探索"]
+      }
+    },
+    {
+      "id": "case_029",
+      "input": "我曾去医院检查，被诊断为中度抑郁和焦虑。医生给我开了药，但我觉得药物副作用很大，很担心对身体造成伤害。",
+      "source": "CPsyCoun (cpsycoun_0285)",
+      "notes": "已确诊抑郁+用药焦虑",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "medium",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_030",
+      "input": "我觉得自己太小，没什么能力改变事情。大人们的世界我插不上话。",
+      "source": "CPsyCoun (cpsycoun_0065)",
+      "notes": "儿童无力感+个人化",
+      "expected_emotion": {
+        "primary_emotion": "无助",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["个人化", "最小化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_031",
+      "input": "分手大半年了，我还是放不下，每天都会去看他的朋友圈，看他过得好不好。",
+      "source": "PsyDial (psydial_004)",
+      "notes": "分手后执念",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_032",
+      "input": "我害怕失去妈妈的关注，总觉得她更喜欢弟弟，我做什么都得不到她的认可。",
+      "source": "CPsyCoun (cpsycoun_1149)",
+      "notes": "亲子偏爱焦虑+读心术",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["读心术", "过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_033",
+      "input": "我觉得小儿子的出生加大了我们的压力，而我老公变得更疏离，把家里的事情看成了更大的负担。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "家庭压力加重",
+      "expected_emotion": {
+        "primary_emotion": "疲惫",
+        "intensity_range": [5, 7],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["反映式倾听"]
+      }
+    },
+    {
+      "id": "case_034",
+      "input": "我后悔的是，自己当初没有认真考虑就向老板透露了出国的计划。虽然我非常期待能有新的生活和学习机会，但未考虑到这会对目前的工作产生这样的负面影响。",
+      "source": "PsyDial (psydial_011)",
+      "notes": "职场后悔",
+      "expected_emotion": {
+        "primary_emotion": "内疚",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["反映式倾听"]
+      }
+    },
+    {
+      "id": "case_035",
+      "input": "老板一直骗我，签的合同也没有给我看过，社保也没交。我先天有心脏病，找工作很难。",
+      "source": "PsyDial (psydial_003)",
+      "notes": "职场欺骗+身体限制",
+      "expected_emotion": {
+        "primary_emotion": "愤怒",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_036",
+      "input": "我觉得自己在公司被边缘化了，没有人愿意跟我说话，每天都像是透明人一样。",
+      "source": "PsyDial (psydial_011)",
+      "notes": "职场孤立+过度概括",
+      "expected_emotion": {
+        "primary_emotion": "孤独",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_037",
+      "input": "辞了教师的工作之后，我以为会轻松，但心里的压抑感并没有消失。听到电话铃声我就会紧张。",
+      "source": "PsyDial (psydial_007)",
+      "notes": "辞职后PTSD样症状",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "case_038",
+      "input": "我觉得我小时候对父亲的愤怒一直没有机会发泄出来。现在遇到权威的人我就会本能地抗拒。",
+      "source": "CPsyCoun (cpsycoun_0191)",
+      "notes": "童年未处理的愤怒+权威恐惧",
+      "expected_emotion": {
+        "primary_emotion": "愤怒",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["开放探索"]
+      }
+    },
+    {
+      "id": "case_039",
+      "input": "我觉得这让我缺乏真正的朋友，让我无法和别人建立深厚的关系。所以我很孤独。",
+      "source": "PsyDial (psydial_010)",
+      "notes": "人际疏离+孤独",
+      "expected_emotion": {
+        "primary_emotion": "孤独",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_040",
+      "input": "对，这半年来，我的情绪一直不太稳定，变得很消极。我觉得自己在工作中一点价值都没有。",
+      "source": "PsyDial (psydial_011)",
+      "notes": "职场消极+自我否定",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["全或无思维"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_041",
+      "input": "嗯，那种幸福和放松在某些时刻是有的，但依然有被过去困扰的时候。整体来说比以前好多了。",
+      "source": "PsyDial (psydial_007)",
+      "notes": "恢复中的积极反馈",
+      "expected_emotion": {
+        "primary_emotion": "平静",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "case_042",
+      "input": "谢谢你的帮助，我会好好配合的。虽然现在还有困难，但我觉得有希望了。",
+      "source": "CPsyCoun (cpsycoun_0285)",
+      "notes": "治疗积极配合",
+      "expected_emotion": {
+        "primary_emotion": "希望",
+        "intensity_range": [4, 6],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "case_043",
+      "input": "好的，我会加油的。谢谢您的鼓励和支持！",
+      "source": "CPsyCoun (cpsycoun_1034)",
+      "notes": "正向结束语",
+      "expected_emotion": {
+        "primary_emotion": "感恩",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["感恩练习"]
+      }
+    },
+    {
+      "id": "case_044",
+      "input": "谢谢你的鼓励，这让我有些安慰和力量去面对接下来的挑战。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "获得力量感",
+      "expected_emotion": {
+        "primary_emotion": "感恩",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "case_045",
+      "input": "就是说，我以前总觉得辞职后会很快乐，但现在发现，我需要的可能不只是逃避，而是真正找到自己想做的事。",
+      "source": "PsyDial (psydial_007)",
+      "notes": "自我觉察与反思",
+      "expected_emotion": {
+        "primary_emotion": "困惑",
+        "intensity_range": [3, 5],
+        "valence": "中性"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["意义探索"]
+      }
+    },
+    {
+      "id": "case_046",
+      "input": "我希望有一个温馨、安静的家，我和丈夫可以互相支持、关爱，共同努力把日子过好。",
+      "source": "CPsyCoun (cpsycoun_0563)",
+      "notes": "对美好生活的向往",
+      "expected_emotion": {
+        "primary_emotion": "希望",
+        "intensity_range": [4, 6],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["最佳可能自我"]
+      }
+    },
+    {
+      "id": "case_047",
+      "input": "好的，我试试。我担心毕业论文，但我相信通过努力，我会顺利完成的。",
+      "source": "CPsyCoun (cpsycoun_1385)",
+      "notes": "有担忧但有信心",
+      "expected_emotion": {
+        "primary_emotion": "希望",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "case_048",
+      "input": "对的，每次和他说话我都会特别开心，好像一切烦恼都被减轻了。",
+      "source": "PsyDial (psydial_019)",
+      "notes": "恋爱中的愉悦",
+      "expected_emotion": {
+        "primary_emotion": "快乐",
+        "intensity_range": [5, 7],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["品味"]
+      }
+    },
+    {
+      "id": "case_049",
+      "input": "其实，我年轻时挺喜欢做手工的，但是因为工作忙，就没有时间继续了。现在退休了，也许可以重新拾起来。",
+      "source": "CPsyCoun (cpsycoun_1827)",
+      "notes": "退休后兴趣重拾",
+      "expected_emotion": {
+        "primary_emotion": "快乐",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["行为激活"]
+      }
+    },
+    {
+      "id": "case_050",
+      "input": "我总是应该做一个好妻子、好妈妈，但我做不到。我觉得自己太失败了。",
+      "source": "CPsyCoun (cpsycoun_0563)",
+      "notes": "应该陈述+贴标签",
+      "expected_emotion": {
+        "primary_emotion": "悲伤",
+        "intensity_range": [6, 8],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["应该陈述", "贴标签"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_051",
+      "input": "我觉得他肯定不喜欢我，他回别人消息那么快，回我的就很慢，一定是嫌弃我了。",
+      "source": "PsyDial (psydial_019)",
+      "notes": "读心术+灾难化",
+      "expected_emotion": {
+        "primary_emotion": "焦虑",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["读心术", "灾难化"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["苏格拉底式提问"]
+      }
+    },
+    {
+      "id": "case_052",
+      "input": "我心里一直有块石头放不下，但说出来之后觉得舒服一些。也许倾诉本身就是一种力量吧。",
+      "source": "PsyDial (psydial_018)",
+      "notes": "倾诉后的释然",
+      "expected_emotion": {
+        "primary_emotion": "平静",
+        "intensity_range": [3, 5],
+        "valence": "积极"
+      },
+      "expected_distortion": {
+        "should_detect": false,
+        "types": [],
+        "min_detections": 0
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "case_053",
+      "input": "好的，我会试着去做。但我还是害怕，万一他再次出轨，我该如何面对？我觉得我承受不了第二次打击。",
+      "source": "CPsyCoun (cpsycoun_0501)",
+      "notes": "信任创伤后的灾难化预期",
+      "expected_emotion": {
+        "primary_emotion": "恐惧",
+        "intensity_range": [5, 7],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["灾难化", "预言家谬误"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "case_054",
+      "input": "遇到男性我就会紧张得不行，心跳加速，手心出汗，脑子一片空白。我觉得所有男人都是危险的。",
+      "source": "CPsyCoun (cpsycoun_0178)",
+      "notes": "性别恐惧+过度概括",
+      "expected_emotion": {
+        "primary_emotion": "恐惧",
+        "intensity_range": [7, 9],
+        "valence": "消极"
+      },
+      "expected_distortion": {
+        "should_detect": true,
+        "types": ["过度概括"],
+        "min_detections": 1
+      },
+      "expected_crisis": {
+        "level": "low",
+        "should_match_keywords": false
+      },
+      "expected_strategy": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    }
+  ],
+  "strategy": [
+    {
+      "id": "str_001",
+      "emotion_state": "crisis",
+      "distortion_type": "",
+      "expected": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "str_002",
+      "emotion_state": "distressed",
+      "distortion_type": "catastrophizing",
+      "expected": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "str_003",
+      "emotion_state": "distressed",
+      "distortion_type": "all_or_nothing",
+      "expected": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "str_004",
+      "emotion_state": "distressed",
+      "distortion_type": "",
+      "expected": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["情绪验证"]
+      }
+    },
+    {
+      "id": "str_005",
+      "emotion_state": "positive",
+      "distortion_type": "",
+      "expected": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["优势发现"]
+      }
+    },
+    {
+      "id": "str_006",
+      "emotion_state": "diffuse",
+      "distortion_type": "overgeneralization",
+      "expected": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["苏格拉底式提问"]
+      }
+    },
+    {
+      "id": "str_007",
+      "emotion_state": "normal",
+      "distortion_type": "",
+      "expected": {
+        "primary_approach": "积极心理学",
+        "should_include_techniques": ["意义探索"]
+      }
+    },
+    {
+      "id": "str_008",
+      "emotion_state": "crisis",
+      "distortion_type": "catastrophizing",
+      "expected": {
+        "primary_approach": "安全协议",
+        "should_include_techniques": ["危机响应"]
+      }
+    },
+    {
+      "id": "str_009",
+      "emotion_state": "distressed",
+      "distortion_type": "should_statements",
+      "expected": {
+        "primary_approach": "认知行为疗法",
+        "should_include_techniques": ["认知重构"]
+      }
+    },
+    {
+      "id": "str_010",
+      "emotion_state": "diffuse",
+      "distortion_type": "",
+      "expected": {
+        "primary_approach": "积极倾听",
+        "should_include_techniques": ["开放探索"]
+      }
+    }
+  ]
+}
