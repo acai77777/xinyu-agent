@@ -1,18 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch,
+  View, Text, TouchableOpacity, ScrollView, StyleSheet, Switch, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, Shadows, FontSizes } from '../constants/theme';
 import { TREND_DATA } from '../constants/mockData';
+import { logout, fetchMe } from '../services/api';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [settings, setSettings] = useState({
     notification: true,
     voiceReply: false,
     autoSave: true,
   });
+  const [displayName, setDisplayName] = useState('');
+  const [companionDays, setCompanionDays] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchMe().then((profile) => {
+      setDisplayName(profile.display_name || profile.username);
+      const created = new Date(profile.created_at);
+      const now = new Date();
+      const days = Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+      setCompanionDays(Math.max(days, 1));
+    }).catch(() => {});
+  }, []);
 
   const toggle = (key: keyof typeof settings) => {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -31,8 +46,10 @@ export default function ProfileScreen() {
           <View style={styles.avatar}>
             <Text style={styles.avatarEmoji}>🙂</Text>
           </View>
-          <Text style={styles.name}>MAOMAO</Text>
-          <Text style={styles.subtitle}>已陪伴 12 天</Text>
+          <Text style={styles.name}>{displayName || 'MAOMAO'}</Text>
+          <Text style={styles.subtitle}>
+            {companionDays !== null ? `已陪伴 ${companionDays} 天` : ''}
+          </Text>
         </View>
 
         {/* Mood Trend */}
@@ -91,6 +108,33 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.settingValue}>v0.1.0</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            activeOpacity={0.7}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                if (window.confirm('确定要退出登录吗？')) {
+                  logout();
+                  router.replace('/login');
+                }
+              } else {
+                Alert.alert('退出登录', '确定要退出登录吗？', [
+                  { text: '取消', style: 'cancel' },
+                  {
+                    text: '退出',
+                    style: 'destructive',
+                    onPress: () => {
+                      logout();
+                      router.replace('/login');
+                    },
+                  },
+                ]);
+              }
+            }}
+          >
+            <Text style={styles.logoutText}>退出登录</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 20 }} />
@@ -196,4 +240,10 @@ const styles = StyleSheet.create({
   },
   settingLabel: { fontSize: FontSizes.body, color: Colors.text },
   settingValue: { fontSize: 14, color: Colors.textSecondary },
+  logoutButton: {
+    marginTop: 16, padding: 14,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.md,
+    alignItems: 'center',
+  },
+  logoutText: { fontSize: FontSizes.body, color: '#E53935', fontWeight: '500' },
 });
