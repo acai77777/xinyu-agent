@@ -365,6 +365,15 @@ class TestProviderSwitch:
         # conftest.py 设置 LLM_PROVIDER=deepseek
         assert _is_deepseek() is True
 
+    def test_volcengine_is_openai_compatible_provider(self, monkeypatch):
+        import llm_client
+
+        monkeypatch.setattr(llm_client.settings, "llm_provider", "volcengine")
+        monkeypatch.setattr(llm_client.settings, "main_model", "doubao-seed-2-0-mini-260428")
+
+        assert llm_client._is_openai_compatible() is True
+        assert llm_client.get_model() == "doubao-seed-2-0-mini-260428"
+
 
 # =====================================================================
 # 6. DeepSeek 推理模型 reasoning_content 透传（v4-flash 工具循环）

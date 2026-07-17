@@ -6,10 +6,18 @@ API 路由测试——test_api.py
 import pytest
 import json
 import logging
+import sys
+import types
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi.testclient import TestClient
 
 from main import app
+
+TEST_MAIN_MODEL = "doubao-seed-2-0-mini-260428"
+
+
+def _ws_json(payload: dict) -> str:
+    return json.dumps({"model": TEST_MAIN_MODEL, **payload})
 
 
 def _mock_crisis_holding():
@@ -62,7 +70,7 @@ class TestWebSocketConnection:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-user-2") as ws:
-                    ws.send_text(json.dumps({
+                    ws.send_text(_ws_json({
                         "type": "text",
                         "content": "你好",
                     }))
@@ -88,7 +96,7 @@ class TestWebSocketConnection:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-user-3") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "我很难过"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "我很难过"}))
                     ws.receive_json()  # skip thinking
                     reply = ws.receive_json()
                     assert "emotion" in reply
@@ -105,7 +113,7 @@ class TestWebSocketConnection:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-user-4") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "我不想活了"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "我不想活了"}))
                     ws.receive_json()  # skip thinking
                     reply = ws.receive_json()
                     assert reply.get("crisis_holding") is True
@@ -122,7 +130,7 @@ class TestWebSocketConnection:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response) as mock_agent:
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-user-5") as ws:
-                    ws.send_text(json.dumps({
+                    ws.send_text(_ws_json({
                         "type": "image",
                         "content": "这是我今天画的",
                         "image_url": "http://example.com/img.jpg",
@@ -139,6 +147,43 @@ class TestWebSocketConnection:
 # 3. 连接管理器
 # =====================================================================
 
+    def test_ws_voice_message_uses_top_level_audio_url(self):
+        """Voice messages from the app send audio_url at the top level."""
+        mock_response = {
+            "text": "已收到语音",
+            "raw_text": "已收到语音",
+            "emotion": None,
+            "crisis_holding_active": False,
+        }
+        stt_module = types.ModuleType("multimodal.stt")
+        stt_module.transcribe_with_emotion_hints = AsyncMock(return_value={
+            "text": "我今天有点累",
+            "emotion_hints": [],
+            "duration_seconds": 0,
+        })
+
+        with _ws_patches(), \
+             patch.dict(sys.modules, {"multimodal.stt": stt_module}), \
+             patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response) as mock_agent:
+            with TestClient(app) as client:
+                with client.websocket_connect("/ws/test-user-voice") as ws:
+                    ws.send_text(_ws_json({
+                        "type": "voice",
+                        "content": "",
+                        "audio_url": "C:/tmp/audio.wav",
+                    }))
+
+                    transcription = ws.receive_json()
+                    assert transcription["type"] == "transcription"
+                    assert transcription["content"] == "我今天有点累"
+                    ws.receive_json()  # thinking
+                    reply = ws.receive_json()
+                    assert reply["type"] == "text_done"
+
+        stt_module.transcribe_with_emotion_hints.assert_awaited_once_with("C:/tmp/audio.wav")
+        assert mock_agent.call_args.kwargs["user_message"] == "我今天有点累"
+
+
 class TestConnectionManager:
 
     def test_multiple_users(self):
@@ -154,8 +199,8 @@ class TestConnectionManager:
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/user-a") as ws_a:
                     with client.websocket_connect("/ws/user-b") as ws_b:
-                        ws_a.send_text(json.dumps({"type": "text", "content": "a"}))
-                        ws_b.send_text(json.dumps({"type": "text", "content": "b"}))
+                        ws_a.send_text(_ws_json({"type": "text", "content": "a"}))
+                        ws_b.send_text(_ws_json({"type": "text", "content": "b"}))
 
                         assert ws_a.receive_json()["type"] == "status"
                         assert ws_a.receive_json()["type"] == "text_done"
@@ -172,6 +217,50 @@ class TestConnectionManager:
 
 class TestStreamingProtocol:
 
+    @pytest.mark.parametrize("model", [
+        "doubao-seed-2-0-mini-260428",
+        "doubao-seed-2-0-lite-260428",
+        "deepseek-v4-flash",
+    ])
+    def test_ws_forwards_allowed_model_to_main_agent(self, model):
+        """会话消息选择的模型只作为本轮主 Agent 覆盖值传递。"""
+        mock_response = {
+            "text": "好的。",
+            "raw_text": "好的。",
+            "emotion": None,
+            "crisis_holding_active": False,
+        }
+        agent = AsyncMock(return_value=mock_response)
+        with _ws_patches(), patch("api.routes_chat.run_agent", agent):
+            with TestClient(app) as client:
+                with client.websocket_connect("/ws/test-model-select") as ws:
+                    ws.send_text(_ws_json({
+                        "type": "text",
+                        "content": "你好",
+                        "model": model,
+                    }))
+                    ws.receive_json()  # thinking
+                    ws.receive_json()  # reply
+
+        assert agent.await_args.kwargs["main_model"] == model
+
+    def test_ws_rejects_unknown_model_without_calling_agent(self):
+        """模型不在白名单时返回协议错误，且不发起任何 LLM 调用。"""
+        agent = AsyncMock()
+        with _ws_patches(), patch("api.routes_chat.run_agent", agent):
+            with TestClient(app) as client:
+                with client.websocket_connect("/ws/test-model-reject") as ws:
+                    ws.send_text(_ws_json({
+                        "type": "text",
+                        "content": "你好",
+                        "model": "unknown-model",
+                    }))
+                    reply = ws.receive_json()
+
+        assert reply["type"] == "error"
+        assert reply["code"] == "unsupported_model"
+        agent.assert_not_awaited()
+
     def test_ws_text_done_when_raw_equals_final(self):
         """LLM 输出未被审核改写 → text_done"""
         mock_response = {
@@ -184,7 +273,7 @@ class TestStreamingProtocol:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-stream-done") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "我累了"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "我累了"}))
                     ws.receive_json()  # thinking
                     reply = ws.receive_json()
                     assert reply["type"] == "text_done"
@@ -211,7 +300,7 @@ class TestStreamingProtocol:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-done-contract") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "ping"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "ping"}))
                     ws.receive_json()  # thinking
                     reply = ws.receive_json()
                     assert reply["type"] == "text_done"
@@ -237,7 +326,7 @@ class TestStreamingProtocol:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-stream-patch") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "我能不能停药"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "我能不能停药"}))
                     ws.receive_json()  # thinking
                     reply = ws.receive_json()
                     assert reply["type"] == "text_patch"
@@ -256,7 +345,7 @@ class TestStreamingProtocol:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-stream-empty") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "嗯"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "嗯"}))
                     ws.receive_json()  # thinking
                     reply = ws.receive_json()
                     assert reply["type"] == "text_patch"
@@ -282,7 +371,7 @@ class TestWebSocketLogs:
              patch("api.routes_chat.run_agent", new_callable=AsyncMock, return_value=mock_response):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-ws-log-1") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "你好"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "你好"}))
                     ws.receive_json()  # thinking
                     ws.receive_json()  # reply
 
@@ -303,7 +392,7 @@ class TestWebSocketLogs:
                    side_effect=RuntimeError("LLM timeout")):
             with TestClient(app) as client:
                 with client.websocket_connect("/ws/test-ws-log-err") as ws:
-                    ws.send_text(json.dumps({"type": "text", "content": "x"}))
+                    ws.send_text(_ws_json({"type": "text", "content": "x"}))
                     ws.receive_json()  # thinking
                     ws.receive_json()  # fallback reply
 

@@ -1,6 +1,6 @@
 """
 WebSocket 实时对话路由
-协议：JSON 消息，格式 {"type": "text|voice|image", "content": "...", "metadata": {...}}
+协议：JSON 消息，格式 {"type": "text|voice|image", "content": "...", "model": "...", "metadata": {...}}
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 import asyncio
@@ -16,6 +16,12 @@ from db import get_db
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+ALLOWED_MAIN_MODELS = {
+    "doubao-seed-2-0-mini-260428",
+    "doubao-seed-2-0-lite-260428",
+    "deepseek-v4-flash",
+}
 
 
 class ConnectionManager:
@@ -216,6 +222,15 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             print(f"[WS] Received msg: {raw[:100]}", flush=True)
             msg = json.loads(raw)
 
+            main_model = msg.get("model")
+            if main_model not in ALLOWED_MAIN_MODELS:
+                await manager.send_json(session_id, {
+                    "type": "error",
+                    "code": "unsupported_model",
+                    "content": "不支持的主对话模型",
+                })
+                continue
+
             # 根据消息类型预处理
             user_text = msg.get("content", "")
             msg_type = msg.get("type", "text")
@@ -225,7 +240,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
             logger.info(f"[WS] {sid8} recv type={msg_type} len={len(user_text)}")
 
             if msg_type == "voice":
-                audio_url = msg.get("metadata", {}).get("audio_url", "")
+                audio_url = msg.get("audio_url") or msg.get("metadata", {}).get("audio_url", "")
                 if audio_url:
                     try:
                         from multimodal.stt import transcribe_with_emotion_hints
@@ -243,7 +258,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                 })
 
             if msg_type == "image":
-                image_url = msg.get("metadata", {}).get("image_url", "")
+                image_url = msg.get("image_url") or msg.get("metadata", {}).get("image_url", "")
                 if image_url:
                     try:
                         from multimodal.vision import analyze_image
@@ -275,6 +290,7 @@ async def chat_websocket(ws: WebSocket, session_id: str):
                     prior_summary=prior_summary,
                     prior_compressed_count=prior_compressed_count,
                     incremental_rounds=incremental_rounds,
+                    main_model=main_model,
                     stream_cb=stream_cb,
                 )
             except Exception as e:

@@ -8,7 +8,7 @@ from config import settings
 
 def _is_openai_compatible() -> bool:
     """判断当前 provider 是否使用 OpenAI 兼容 API"""
-    return settings.llm_provider in ("deepseek", "openrouter")
+    return settings.llm_provider in ("deepseek", "openrouter", "volcengine")
 
 
 def get_async_client():
@@ -26,6 +26,14 @@ def get_async_client():
         return AsyncOpenAI(
             api_key=settings.openrouter_api_key,
             base_url=settings.openrouter_base_url,
+            timeout=httpx.Timeout(timeout_sec, connect=10.0),
+        )
+    elif provider == "volcengine":
+        from openai import AsyncOpenAI
+        import httpx
+        return AsyncOpenAI(
+            api_key=settings.volcengine_api_key,
+            base_url=settings.volcengine_base_url,
             timeout=httpx.Timeout(timeout_sec, connect=10.0),
         )
     elif provider == "deepseek":
@@ -72,6 +80,14 @@ def get_sync_client():
             base_url=settings.openrouter_base_url,
             timeout=httpx.Timeout(timeout_sec, connect=10.0),
         )
+    elif provider == "volcengine":
+        from openai import OpenAI
+        import httpx
+        return OpenAI(
+            api_key=settings.volcengine_api_key,
+            base_url=settings.volcengine_base_url,
+            timeout=httpx.Timeout(timeout_sec, connect=10.0),
+        )
     elif provider == "deepseek":
         from openai import OpenAI
         import httpx
@@ -108,4 +124,6 @@ def get_deepseek_extra_body() -> dict:
     思考模式下每轮 tool_use 累积 thinking token，3 轮工具循环可达 13.6s。
     文档：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
     """
+    if settings.llm_provider != "deepseek":
+        return {}
     return {"thinking": {"type": "disabled"}}

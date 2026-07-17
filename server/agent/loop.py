@@ -402,6 +402,7 @@ async def run_agent(
     prior_summary: str | None = None,
     prior_compressed_count: int | None = None,
     incremental_rounds: int = 0,
+    main_model: str | None = None,
     stream_cb=None,
 ) -> dict:
     """
@@ -603,7 +604,17 @@ async def run_agent(
     if context_hints:
         context_enriched_prompt += "\n\n" + "\n".join(context_hints)
 
-    messages = compressed_history + [{"role": "user", "content": user_message}]
+    # 字数硬约束:挂到最近 user 消息末尾,LLM 注意力焦点。
+    # 仅 system prompt 在长上下文(>3000 字)中会被稀释(jsonl 数据 Q4 中位 335 字,
+    # 已远超 system 里的"100~200 字"约束),必须把约束推到 messages 末尾才挡得住。
+    # user_message 是临时变量,这个 reminder 不污染 conversation_history。
+    LENGTH_REMINDER = (
+        "\n\n---\n"
+        "[系统约束·本次回复必须 ≤300 字 · 接近 250 字时立即收束 · 违反视为失败回复]"
+    )
+    messages = compressed_history + [
+        {"role": "user", "content": user_message + LENGTH_REMINDER}
+    ]
 
     # 危机抱持模式下禁用工具
     active_tools = [] if crisis_holding.active else tools
@@ -617,6 +628,7 @@ async def run_agent(
             messages=messages,
             tools=active_tools or None,
             max_tokens=settings.main_max_tokens,
+            model_override=main_model,
             stream_cb=stream_cb,
         )
 
